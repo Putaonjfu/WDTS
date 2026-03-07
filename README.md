@@ -21,4 +21,79 @@ conda create -n wdts python=3.8 -y
 conda activate wdts
 pip install -r requirements.txt
 
+```
 
+---
+
+## Citation
+
+If you find our work, methodology, or code useful in your research, please consider citing our paper. 
+
+**Note:** The manuscript is currently **under review** at the *ISPRS Journal of Photogrammetry and Remote Sensing*. The citation will be updated once accepted.
+
+```bibtex
+@article{wdts_under_review,
+  title={WDTS: Water Droplet Model-Driven Entropy Optimization for Individual Tree Skeletonization from Terrestrial Laser Scanning Point Clouds},
+  author={Anonymous},
+  journal={ISPRS Journal of Photogrammetry and Remote Sensing},
+  year={Under Review}
+}
+```
+
+---
+
+## Usage
+
+*(Below is a preliminary guide for the currently available modules. Full pipeline instructions will be added soon.)*
+
+### 1. Interwoven Optimization
+To run the currently available interwoven geometric and topological optimization on a preliminary skeleton:
+
+```bash
+python run_interwoven_optimization.py \
+  --input_pc data/sample_tree.las \
+  --input_skeleton data/sample_tree_init_skel.ply \
+  --output results/optimized_skeleton.ply
+```
+
+### 2. Full Pipeline (Coming Soon)
+Once the skeletonization module is uploaded, you will be able to run the end-to-end pipeline using:
+```bash
+python main.py --config configs/default.yaml --input data/sample_tree.las
+```
+
+---
+
+## Datasets
+
+The experiments in our paper were evaluated on:
+* **Single-scan TLS Dataset:** Extracted from real-world forestry plots.
+* **Multi-scans TLS Dataset:** Merged point clouds providing higher density and less occlusion.
+* **Simulated Dataset:** Synthetically generated tree models with absolute ground truth skeletons for quantitative evaluation.
+
+*(Sample data will be provided in the `data/` folder in future updates.)*
+
+---
+
+## Results
+
+WDTS produces highly compact, topologically rational, and centered skeletons. Below is a summary of our quantitative improvements over the Dijkstra-enhanced L1-medial baseline:
+
+| Dataset | Averaged MAE Reduction |
+| :--- | :--- |
+| Single-scan | 0.011m |
+| Multi-scans | 0.002m |
+| Simulated | 0.030m |
+
+---
+
+## License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+---
+
+## Contact & Acknowledgements
+
+If you have any questions, encounter issues, or want to discuss potential collaborations, please feel free to open an issue in this repository. 
+*(Author contact information will be explicitly listed upon paper publication.)*

@@ -73,7 +73,7 @@ python run_interwoven_optimization.py
 
 If you find our work, methodology, or code useful in your research, please consider citing our paper. 
 
-**Note:** The manuscript is currently **under review** at the *ISPRS Journal of Photogrammetry and Remote Sensing*. The citation will be updated once accepted.
+**Note:** The manuscript is currently **major revision** at the *ISPRS Journal of Photogrammetry and Remote Sensing*. The citation will be updated once accepted.
 
 ```bibtex
 @article{wdts_under_review,

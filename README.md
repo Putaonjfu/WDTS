@@ -1,13 +1,26 @@
 # WDTS: Water Droplet Model-Driven Entropy Optimization for Individual Tree Skeletonization from Terrestrial Laser Scanning Point Clouds
 
-**Abstract**
+## Abstract
 
-Individual tree skeletonization is a fundamental task in forestry remote sensing, which serves as a crucial prerequisite for various downstream applications, ranging from tree structural parameter estimation to carbon cycle modeling. Nevertheless, most existing skeletonization approaches struggle to generate a compact, centered tree skeleton while preserving detail fidelity and topological rationality. To this end, this paper proposes a water droplet model-driven entropy optimization approach (WDTS) to extract individual tree skeletons from Terrestrial Laser Scanning (TLS) point clouds. WDTS models an individual tree TLS point cloud as a system of water droplets with varying masses, by progressively generating the skeleton through simulated droplet contraction, merging, and evaporation processes. Key to our approach is an entropy reduction framework that progressively drives droplets toward compact skeletons. To further enhance the centeredness of the generated tree skeleton, WDTS employs a geometric and topological interwoven optimization strategy, explicitly aligning the skeleton within the center of the branch point clouds by minimizing the sum of the squared residuals. Experiments conducted on three individual tree TLS point cloud datasets with different data acquisition strategies have demonstrated the effectiveness and robustness of the proposed WDTS. Compared with previous methods, especially the state-of-the-art Dijkstra-enhanced L1-medial method, WDTS remarkably improves the compactness and centeredness of the skeletons with well-preserved local branch details, reducing the averaged MAE by 0.011m, 0.002m, and 0.030m on the single-scan, multi-scan, and simulated dataset, respectively. The generated tree skeletons including not only the tree skeleton points but also topologically coherent edges provide a robust foundation for downstream tasks, including precise tree geometry modeling, biomass estimation, and forestry-related sustainable development applications.
+This repository provides the implementation of **WDTS (Water Droplet Model-Driven Entropy Optimization)** for individual tree skeletonization from Terrestrial Laser Scanning (TLS) point clouds.
+
+Individual tree skeletonization is a fundamental task in forestry remote sensing and serves as an important prerequisite for various downstream applications, such as tree structural parameter estimation, tree geometry modeling, biomass estimation, and carbon cycle analysis. However, most existing skeletonization methods still struggle to simultaneously generate a **compact**, **centered**, and **topologically reasonable** skeleton while preserving fine local branch details.
+
+To address this issue, WDTS models an individual tree TLS point cloud as a system of water droplets with varying masses, and progressively generates the skeleton through simulated **droplet contraction, merging, and evaporation** processes. The method is further enhanced by an **entropy reduction framework** and a **geometric and topological interwoven optimization strategy**, which improve skeleton compactness, centeredness, and topological coherence.
 
 ---
+
+## Pipeline
 
 ![Pipeline](pipeline.png)
 
 ---
 
-The code is currently being organized and will be uploaded in the near future.
+## Environment Setup
+
+To run WDTS, you should first create a conda environment named `wdts` with Python 3.8, then activate it and install the required dependencies.
+
+```bash
+conda create -n wdts python=3.8 -y
+conda activate wdts
+pip install -r requirements.txt

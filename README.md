@@ -78,7 +78,7 @@ If you find our work, methodology, or code useful in your research, please consi
 ```bibtex
 @article{wdts_under_review,
   title={WDTS: Water Droplet Model-Driven Entropy Optimization for Individual Tree Skeletonization from Terrestrial Laser Scanning Point Clouds},
-  author={Anonymous},
+  author={Tao Pu...},
   journal={ISPRS Journal of Photogrammetry and Remote Sensing},
   year={Under Review}
 }

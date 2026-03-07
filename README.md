@@ -23,6 +23,21 @@ pip install -r requirements.txt
 
 ```
 
+---
+
+## Citation
+
+If you find our work, methodology, or code useful in your research, please consider citing our paper. 
+
+**Note:** The manuscript is currently **under review** at the *ISPRS Journal of Photogrammetry and Remote Sensing*. The citation will be updated once accepted.
+
+```bibtex
+@article{wdts_under_review,
+  title={WDTS: Water Droplet Model-Driven Entropy Optimization for Individual Tree Skeletonization from Terrestrial Laser Scanning Point Clouds},
+  author={Anonymous},
+  journal={ISPRS Journal of Photogrammetry and Remote Sensing},
+  year={Under Review}
+}
 
 ```
 
@@ -50,18 +65,3 @@ python main.py --config configs/default.yaml --input data/sample_tree.las
 
 ---
 
----
-
-## Citation
-
-If you find our work, methodology, or code useful in your research, please consider citing our paper. 
-
-**Note:** The manuscript is currently **under review** at the *ISPRS Journal of Photogrammetry and Remote Sensing*. The citation will be updated once accepted.
-
-```bibtex
-@article{wdts_under_review,
-  title={WDTS: Water Droplet Model-Driven Entropy Optimization for Individual Tree Skeletonization from Terrestrial Laser Scanning Point Clouds},
-  author={Anonymous},
-  journal={ISPRS Journal of Photogrammetry and Remote Sensing},
-  year={Under Review}
-}

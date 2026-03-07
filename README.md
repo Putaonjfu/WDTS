@@ -26,23 +26,45 @@ pip install -r requirements.txt
 
 ## Usage
 
-*(Below is a preliminary guide for the currently available modules. Full pipeline instructions will be added soon.)*
+The complete WDTS method consists of a two-step pipeline: initial skeletonization followed by interwoven optimization. 
 
-### 1. Interwoven Optimization
-To run the currently available interwoven geometric and topological optimization on a preliminary skeleton:
+*(Note: We have currently released the code for the interwoven optimization module. The core skeletonization code is being organized and will be uploaded soon.)*
 
+### 1. Full WDTS Pipeline 
+
+Once all modules are available, the end-to-end extraction will be executed in two sequential steps:
+
+**Step 1.1: Skeletonization (Code coming soon)** First, generate the initial preliminary tree skeleton from the raw TLS point cloud:
 ```bash
-python run_interwoven_optimization.py \
-  --input_pc data/sample_tree.las \
-  --input_skeleton data/sample_tree_init_skel.ply \
-  --output results/optimized_skeleton.ply
+python run_skeletonization.py --input data/sample_tree.las --output results/initial_skeleton.ply
 ```
 
-### 2. Full Pipeline (Coming Soon)
-Once the skeletonization module is uploaded, you will be able to run the end-to-end pipeline using:
+**Step 1.2: Interwoven Optimization** Next, apply the geometric and topological interwoven optimization to the preliminary skeleton to obtain the final, highly-centered WDTS output:
+```bash
+python run_interwoven_optimization.py
+```
+
+### 2. Running the Available Module (Interwoven Optimization)
+
+If you already have a preliminary skeleton (or want to test the optimization module), you can run it right now. Before running, you must configure the input and output directories directly inside the script. 
+
+Open the relevant Python file and update the following variables with your local absolute paths:
+
+```python
+# Please set the input directory of the skeleton files for interwoven optimization.
+self.sk_input_dir = r"/path/to/your/skeleton_files_directory"
+
+# Please set the input directory of the corresponding point cloud files.
+self.tls_input_dir = r"/path/to/your/point_cloud_directory"
+
+# Please set the output directory for the optimization results.
+self.output_dir = r"/path/to/your/output_directory"
+```
+
+After modifying the paths to match your local setup, simply run:
 
 ```bash
-python main.py --config configs/default.yaml --input data/sample_tree.las
+python run_interwoven_optimization.py
 ```
 
 ---

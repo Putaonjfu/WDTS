@@ -6,7 +6,7 @@ Individual tree skeletonization is a fundamental task in forestry remote sensing
 
 ---
 
-![Pipeline](pipieline.pdf)
+[Pipeline PDF](pipeline.pdf)
 
 ---
 

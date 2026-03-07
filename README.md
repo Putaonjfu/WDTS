@@ -76,7 +76,7 @@ If you find our work, methodology, or code useful in your research, please consi
 **Note:** The manuscript is currently **major revision** at the *ISPRS Journal of Photogrammetry and Remote Sensing*. The citation will be updated once accepted.
 
 ```bibtex
-@article{wdts_under_review,
+@article{wdts_major_revision,
   title={WDTS: Water Droplet Model-Driven Entropy Optimization for Individual Tree Skeletonization from Terrestrial Laser Scanning Point Clouds},
   author={Tao Pu...},
   journal={ISPRS Journal of Photogrammetry and Remote Sensing},

@@ -104,8 +104,6 @@ If you find our work, methodology, or code useful in your research, please consi
 
 ## Star History
 
-## Star History
-
 <a href="https://www.star-history.com/?repos=Putaonjfu/WDTS&type=date&legend=top-left">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/image?repos=Putaonjfu/WDTS&type=date&theme=dark&legend=top-left" />

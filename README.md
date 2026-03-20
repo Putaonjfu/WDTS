@@ -12,18 +12,6 @@ Individual tree skeletonization is a fundamental task in forestry remote sensing
 
 ---
 
-## Star History
-
-<a href="https://www.star-history.com/?repos=project-lightlin%2FSmartQSM&type=date&legend=top-left">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/image?repos=project-lightlin/SmartQSM&type=date&theme=dark&legend=top-left" />
-    <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/image?repos=project-lightlin/SmartQSM&type=date&legend=top-left" />
-    <img alt="Star History Chart" src="https://api.star-history.com/image?repos=project-lightlin/SmartQSM&type=date&legend=top-left" />
-  </picture>
-</a>
-
----
-
 ## Environment Setup
 
 To run WDTS, you should first create a conda environment named `wdts` with Python 3.8, then activate it and install the required dependencies.
@@ -107,4 +95,19 @@ If you find our work, methodology, or code useful in your research, please consi
 @article{wdts_major_revision,
   title={WDTS: Water Droplet Model-Driven Entropy Optimization for Individual Tree Skeletonization from Terrestrial Laser Scanning Point Clouds},
   author={Tao Pu...},
-  journal={ISPRS Journal
+  journal={ISPRS Journal of Photogrammetry and Remote Sensing},
+  year={Major Revision}
+}
+```
+
+---
+
+## Star History
+
+<a href="https://www.star-history.com/?repos=YOUR_USERNAME/YOUR_REPO_NAME&type=date&legend=top-left">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/image?repos=YOUR_USERNAME/YOUR_REPO_NAME&type=date&theme=dark&legend=top-left" />
+    <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/image?repos=YOUR_USERNAME/YOUR_REPO_NAME&type=date&legend=top-left" />
+    <img alt="Star History Chart" src="https://api.star-history.com/image?repos=YOUR_USERNAME/YOUR_REPO_NAME&type=date&legend=top-left" />
+  </picture>
+</a>

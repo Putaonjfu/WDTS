@@ -26,22 +26,32 @@ pip install -r requirements.txt
 
 ## Usage
 
-The complete WDTS method consists of a two-step pipeline: initial skeletonization followed by interwoven optimization.
+The complete WDTS method consists of a two-step pipeline: initial skeletonization followed by interwoven optimization. 
 
 *(Note: All code for the complete WDTS pipeline, including both skeletonization and interwoven optimization, is now fully released and available.)*
 
+**Testing with Sample Data:**
+We provide a `testdata` folder containing sample data to help you quickly test the pipeline. The folder includes:
+* `Tree_1.txt`: The raw point cloud data.
+* `Tree_1_ske_without_interwoven_op.ply`: The initial skeletonization result (for reference or as input for Step 2).
+* `Tree_1_ske_within_interwoven_op.ply`: The final skeleton after interwoven optimization (for reference).
+
 ### Step 1: Initial Skeletonization
 
-First, configure the input data path, output save path, and the tree file name directly inside the `run_skeletonization.py` script. Open the file and update the following variables with your local absolute paths:
+First, configure the input data path, output save path, tree ID, and gamma value directly inside the `run_skeletonization.py` script. You can point these to the `testdata` folder to test the code:
 
 ```python
-# Please set the input point cloud directory, output directory, and tree name
-datapath = '/path/to/your/data/'
-base_savepath = '/path/to/your/result_test/'
-Name = ['Tree_16']
+# Please set the path to your dataset, the base save path, and the ID of the tree to be skeletonized.
+# Note: The input file should be in txt format, but do not include the extension ('.txt').
+datapath = './testdata/'
+base_savepath = './testdata/result_test/'
+Name = ['Tree_1']
+
+# Set the gamma value for water droplet contraction and merging. We recommend 0.1.
+gamma_values = [0.1]
 ```
 
-After modifying the paths to match your local setup, run the skeletonization script to generate the initial individual tree skeleton from the TLS point cloud:
+After modifying the paths, run the skeletonization script to generate the initial individual tree skeleton:
 
 ```bash
 python run_skeletonization.py
@@ -49,19 +59,19 @@ python run_skeletonization.py
 
 ### Step 2: Interwoven Optimization
 
-Next, apply the geometric and topological interwoven optimization to the preliminary skeleton to obtain the final, highly-centered WDTS output.
+Next, apply the geometric and topological interwoven optimization to the preliminary skeleton.
 
-Before running the optimization, you must configure the input and output directories directly inside the `run_interwoven_optimization.py` script. Open the file and update the following variables with your local absolute paths:
+Configure the input and output directories directly inside the `run_interwoven_optimization.py` script. You can point these to the `testdata` folder:
 
 ```python
 # Please set the input directory of the skeleton files for interwoven optimization.
-self.sk_input_dir = r"/path/to/your/skeleton_files_directory"
+self.sk_input_dir = r"./testdata/"
 
 # Please set the input directory of the corresponding point cloud files.
-self.tls_input_dir = r"/path/to/your/point_cloud_directory"
+self.tls_input_dir = r"./testdata/"
 
 # Please set the output directory for the optimization results.
-self.output_dir = r"/path/to/your/output_directory"
+self.output_dir = r"./testdata/result_test/"
 ```
 
 After modifying the paths to match your local setup, simply run:

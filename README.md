@@ -28,7 +28,7 @@ pip install -r requirements.txt
 
 The complete WDTS method consists of a two-step pipeline: initial skeletonization followed by interwoven optimization. 
 
-*(Note: We have currently released the code for the interwoven optimization. The core skeletonization code is being organized and will be uploaded soon.)*
+*(Note: We have currently released the all code for the  skeletonization and interwoven optimization.)*
 
 ### 1. Full WDTS Pipeline 
 

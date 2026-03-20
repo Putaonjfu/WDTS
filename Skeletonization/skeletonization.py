@@ -1008,7 +1008,7 @@ def water_droplet_contract(point_cloud, parameters, savepath, name):
                     TLSM[i, 5] = 0.0
                     TLSM[i, 6] = 0.0
                     TLSM[i, 7] = 1.0
-                    TLSM[i, 4] *= 2 * (1 - 0.0 + 0.0)
+                    TLSM[i, 4] *= 2 * (1 - ldi + pdi + sdi)
 
         TLSM = update_mass_vectorized(TLSM, parameters)
         TLSM = fuse_droplets_mass_radius(TLSM)

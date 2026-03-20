@@ -2,7 +2,7 @@
 
 ## Abstract
 
-Individual tree skeletonization is a fundamental task in forestry remote sensing, which serves as a crucial prerequisite for various downstream applications, ranging from tree structural parameter estimation to carbon cycle modeling. Nevertheless, most existing skeletonization approaches struggle to generate a compact, centered tree skeleton while preserving detail fidelity and topological rationality. To this end, this paper proposes a water droplet model-driven entropy optimization approach (WDTS) to extract individual tree skeletons from Terrestrial Laser Scanning (TLS) point clouds. WDTS models an individual tree TLS point cloud as a system of water droplets with varying masses, by progressively generating the skeleton through simulated droplet contraction, merging, and evaporation processes. Key to our approach is an entropy reduction framework that progressively drives droplets toward compact skeletons. To further enhance the centeredness of the generated tree skeleton, WDTS employs a geometric and topological interwoven optimization strategy, explicitly aligning the skeleton within the center of the branch point clouds by minimizing the sum of the squared residuals. Experiments conducted on three individual tree TLS point cloud datasets with different data acquisition strategies have demonstrated the effectiveness and robustness of the proposed WDTS. Compared with previous methods, especially the state-of-the-art Dijkstra-enhanced L1-medial method, WDTS remarkably improves the compactness and centeredness of the skeletons with well-preserved local branch details, reducing the averaged MAE by 0.011m, 0.002m, and 0.030m on the single-scan, multi-scans, and simulated dataset, respectively. The generated tree skeletons including not only the tree skeleton points but also topologically coherent edges provide a robust foundation for downstream tasks, including precise tree geometry modeling, biomass estimation, and forestry-related sustainable development applications. 
+Individual tree skeletonization is a fundamental task in forestry remote sensing, which serves as a crucial prerequisite for various downstream applications, ranging from tree structural parameter estimation to carbon cycle modeling. Nevertheless, most existing skeletonization approaches struggle to generate a compact, centered tree skeleton while preserving detail fidelity and topological rationality. To this end, this paper proposes a water droplet model-driven entropy optimization approach (WDTS) to extract individual tree skeletons from Terrestrial Laser Scanning (TLS) point clouds. WDTS models an individual tree TLS point cloud as a system of water droplets with varying masses, by progressively generating the skeleton through simulated droplet contraction, merging, and evaporation processes. Key to our approach is an entropy reduction framework that progressively drives droplets toward compact skeletons. To further enhance the centeredness of the generated tree skeleton, WDTS employs a geometric and topological interwoven optimization strategy, explicitly aligning the skeleton within the center of the branch point clouds by minimizing the sum of the squared residuals. Experiments conducted on three individual tree TLS point cloud datasets with different data acquisition strategies have demonstrated the effectiveness and robustness of the proposed WDTS. Compared with previous methods, especially the state-of-the-art Dijkstra-enhanced L1-medial method, WDTS remarkably improves the compactness and centeredness of the skeletons with well-preserved local branch details, reducing the averaged MAE by 0.011m, 0.002m, and 0.030m on the single-scan, multi-scans, and simulated dataset, respectively. The generated tree skeletons including not only the tree skeleton points but also topologically coherent edges provide a robust foundation for downstream tasks, including precise tree geometry modeling, biomass estimation, and forestry-related sustainable development applications.
 
 ---
 
@@ -26,29 +26,32 @@ pip install -r requirements.txt
 
 ## Usage
 
-The complete WDTS method consists of a two-step pipeline: initial skeletonization followed by interwoven optimization. 
+The complete WDTS method consists of a two-step pipeline: initial skeletonization followed by interwoven optimization.
 
-*(Note: We have currently released the all code for the  skeletonization and interwoven optimization.)*
+*(Note: All code for the complete WDTS pipeline, including both skeletonization and interwoven optimization, is now fully released and available.)*
 
-### 1. Full WDTS Pipeline 
+### Step 1: Initial Skeletonization
 
-Once all modules are available, the end-to-end extraction will be executed in two sequential steps:
+First, configure the input data path, output save path, and the tree file name directly inside the `run_skeletonization.py` script. Open the file and update the following variables with your local absolute paths:
 
-**Step 1.1: Skeletonization (Code coming soon)** First, generate the initial individual tree skeleton from the TLS point cloud:
-```bash
-python run_skeletonization.py --input data/sample_tree.txt --output results/initial_skeleton.ply
+```python
+# Please set the input point cloud directory, output directory, and tree name
+datapath = '/path/to/your/data/'
+base_savepath = '/path/to/your/result_test/'
+Name = ['Tree_16']
 ```
 
-**Step 1.2: Interwoven Optimization** Next, apply the geometric and topological interwoven optimization to the preliminary skeleton to obtain the final, highly-centered WDTS output:
+After modifying the paths to match your local setup, run the skeletonization script to generate the initial individual tree skeleton from the TLS point cloud:
+
 ```bash
-python run_interwoven_optimization.py
+python run_skeletonization.py
 ```
 
-### 2. Running the Available code (Interwoven Optimization)
+### Step 2: Interwoven Optimization
 
-If you already have a preliminary skeleton (or want to test the interwoven optimization ), you can run it right now. Before running, you must configure the input and output directories directly inside the script. 
+Next, apply the geometric and topological interwoven optimization to the preliminary skeleton to obtain the final, highly-centered WDTS output.
 
-Open the relevant Python file and update the following variables with your local absolute paths:
+Before running the optimization, you must configure the input and output directories directly inside the `run_interwoven_optimization.py` script. Open the file and update the following variables with your local absolute paths:
 
 ```python
 # Please set the input directory of the skeleton files for interwoven optimization.
@@ -71,9 +74,9 @@ python run_interwoven_optimization.py
 
 ## Citation
 
-If you find our work, methodology, or code useful in your research, please consider citing our paper. 
+If you find our work, methodology, or code useful in your research, please consider citing our paper.
 
-**Note:** The manuscript is currently **major revision** at the *ISPRS Journal of Photogrammetry and Remote Sensing*. The citation will be updated once accepted.
+**Note:** The manuscript is currently under **major revision** at the *ISPRS Journal of Photogrammetry and Remote Sensing*. The citation will be updated once accepted.
 
 ```bibtex
 @article{wdts_major_revision,

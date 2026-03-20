@@ -80,6 +80,9 @@ After modifying the paths to match your local setup, simply run:
 python run_interwoven_optimization.py
 ```
 
+**Note on Downstream Applications:**
+Please note that the code for precise individual tree modeling and structural parameter extraction is currently not publicly available, as it is part of another ongoing research project. Please watch or star this repository to stay tuned for future updates!
+
 ---
 
 ## Citation

@@ -1048,9 +1048,12 @@ def water_droplet_contract(point_cloud, parameters, savepath, name):
     return skPoints, tuopu
 
 
+# Please set the path to your dataset, the base save path, and the ID of the tree to be skeletonized.
+# Note: The input file should be in txt format, but do not include the extension ('.txt').
 datapath = '/home/graper/WDTS_test/data/'
 base_savepath = '/home/graper/WDTS_test/result_test/'
 Name = ['Tree_16']
+# Set the gamma value for water droplet contraction and merging. We recommend 0.1.
 gamma_values = [0.1]
 gamma_times = []
 

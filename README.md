@@ -28,8 +28,6 @@ pip install -r requirements.txt
 
 The complete WDTS method consists of a two-step pipeline: initial skeletonization followed by interwoven optimization. 
 
-*(Note: All code for the complete WDTS pipeline, including both skeletonization and interwoven optimization, is now fully released and available.)*
-
 **Testing with Sample Data:**
 We provide a `testdata` folder containing sample data to help you quickly test the pipeline. The folder includes:
 * `Tree_1.txt`: The raw point cloud data.

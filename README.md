@@ -6,17 +6,6 @@
 
 ---
 
-## 🌟 Star History
-
-<a href="https://www.star-history.com/?repos=Putaonjfu/WDTS&type=date&legend=top-left">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/image?repos=Putaonjfu/WDTS&type=date&theme=dark&legend=top-left" />
-    <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/image?repos=Putaonjfu/WDTS&type=date&legend=top-left" />
-    <img alt="Star History Chart" src="https://api.star-history.com/image?repos=Putaonjfu/WDTS&type=date&legend=top-left" />
-  </picture>
-</a>
-
----
 
 ## 🔄 Pipeline
 
@@ -111,3 +100,14 @@ If you find our work, methodology, or code useful in your research, please consi
   year={Major Revision}
 }
 ```
+## 🌟 Star History
+
+<a href="https://www.star-history.com/?repos=Putaonjfu/WDTS&type=date&legend=top-left">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/image?repos=Putaonjfu/WDTS&type=date&theme=dark&legend=top-left" />
+    <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/image?repos=Putaonjfu/WDTS&type=date&legend=top-left" />
+    <img alt="Star History Chart" src="https://api.star-history.com/image?repos=Putaonjfu/WDTS&type=date&legend=top-left" />
+  </picture>
+</a>
+
+---

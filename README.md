@@ -12,6 +12,18 @@ Individual tree skeletonization is a fundamental task in forestry remote sensing
 
 ---
 
+## Star History
+
+<a href="https://www.star-history.com/?repos=project-lightlin%2FSmartQSM&type=date&legend=top-left">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/image?repos=project-lightlin/SmartQSM&type=date&theme=dark&legend=top-left" />
+    <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/image?repos=project-lightlin/SmartQSM&type=date&legend=top-left" />
+    <img alt="Star History Chart" src="https://api.star-history.com/image?repos=project-lightlin/SmartQSM&type=date&legend=top-left" />
+  </picture>
+</a>
+
+---
+
 ## Environment Setup
 
 To run WDTS, you should first create a conda environment named `wdts` with Python 3.8, then activate it and install the required dependencies.
@@ -28,6 +40,8 @@ pip install -r requirements.txt
 
 The complete WDTS method consists of a two-step pipeline: initial skeletonization followed by interwoven optimization. 
 
+*(Note: All code for the complete WDTS pipeline, including both skeletonization and interwoven optimization, is now fully released and available.)*
+
 **Testing with Sample Data:**
 We provide a `testdata` folder containing sample data to help you quickly test the pipeline. The folder includes:
 * `Tree_1.txt`: The raw point cloud data.
@@ -36,14 +50,14 @@ We provide a `testdata` folder containing sample data to help you quickly test t
 
 ### Step 1: Initial Skeletonization
 
-First, configure the input data path, output save path, tree ID, and gamma value directly inside the `run_skeletonization.py` script. You can point these to the `testdata` folder to test the code:
+First, configure the input data path, output save path, tree ID, and gamma value directly inside the `run_skeletonization.py` script. You can point these to your data to run the code:
 
 ```python
 # Please set the path to your dataset, the base save path, and the ID of the tree to be skeletonized.
 # Note: The input file should be in txt format, but do not include the extension ('.txt').
-datapath = './testdata/'
-base_savepath = './testdata/result_test/'
-Name = ['Tree_1']
+datapath = '/home/graper/WDTS_test/data/'
+base_savepath = '/home/graper/WDTS_test/result_test/'
+Name = ['Tree_16']
 
 # Set the gamma value for water droplet contraction and merging. We recommend 0.1.
 gamma_values = [0.1]
@@ -59,7 +73,7 @@ python run_skeletonization.py
 
 Next, apply the geometric and topological interwoven optimization to the preliminary skeleton.
 
-Configure the input and output directories directly inside the `run_interwoven_optimization.py` script. You can point these to the `testdata` folder:
+Configure the input and output directories directly inside the `run_interwoven_optimization.py` script. You can point these to your skeleton and TLS directories:
 
 ```python
 # Please set the input directory of the skeleton files for interwoven optimization.
@@ -93,7 +107,4 @@ If you find our work, methodology, or code useful in your research, please consi
 @article{wdts_major_revision,
   title={WDTS: Water Droplet Model-Driven Entropy Optimization for Individual Tree Skeletonization from Terrestrial Laser Scanning Point Clouds},
   author={Tao Pu...},
-  journal={ISPRS Journal of Photogrammetry and Remote Sensing},
-  year={Major Revision}
-}
-```
+  journal={ISPRS Journal

@@ -32,7 +32,7 @@ The complete WDTS method consists of a two-step pipeline: initial skeletonizatio
 
 **📂 Testing with Sample Data:**
 We provide a `testdata` folder containing sample data to help you quickly test the pipeline. The folder includes:
-* `Tree_1.txt`: The raw point cloud data.
+* `Tree_1.txt`: The TLS point cloud data.
 * `Tree_1_ske_without_interwoven_op.ply`: The initial skeletonization result (for reference or as input for Step 2).
 * `Tree_1_ske_within_interwoven_op.ply`: The final skeleton after interwoven optimization (for reference).
 

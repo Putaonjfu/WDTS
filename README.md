@@ -89,7 +89,6 @@ Please note that the code for precise individual tree modeling and structural pa
 
 If you find our work, methodology, or code useful in your research, please consider citing our paper.
 
-**Note:** The manuscript is currently under **Under review (2nd round)** at the *ISPRS Journal of Photogrammetry and Remote Sensing*. The citation will be updated once accepted.
 
 ```bibtex
 @article{pu2026wdts,

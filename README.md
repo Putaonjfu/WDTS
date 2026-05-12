@@ -92,10 +92,14 @@ If you find our work, methodology, or code useful in your research, please consi
 **Note:** The manuscript is currently under **Under review (2nd round)** at the *ISPRS Journal of Photogrammetry and Remote Sensing*. The citation will be updated once accepted.
 
 ```bibtex
-@article{wdts_under_review,
-  title={WDTS: Water Droplet Model-Driven Entropy Optimization for Individual Tree Skeletonization from Terrestrial Laser Scanning Point Clouds},
-  author={Tao Pu,Shenglan Du,Mingming Sui,Dong Chen,Yueqian Shen,Yanming Chen,Yiyang Kong,Ziyou Wang,Jiju Peethambaran,Liqiang Zhang},
+@article{pu2026wdts,
+  title={WDTS: Water droplet model-driven entropy optimization for individual tree skeletonization from terrestrial laser scanning point clouds},
+  author={Pu, Tao and Du, Shenglan and Sui, Mingming and Chen, Dong and Shen, Yueqian and Chen, Yanming and Kong, Yiyang and Wang, Ziyou and Poovvancheri, Jiju and Zhang, Liqiang},
   journal={ISPRS Journal of Photogrammetry and Remote Sensing},
-  year={under review}
+  volume={238},
+  pages={81--113},
+  year={2026},
+  publisher={Elsevier},
+  doi={10.1016/j.isprsjprs.2026.04.050}
 }
 

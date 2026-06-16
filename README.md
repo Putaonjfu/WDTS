@@ -54,7 +54,7 @@ gamma_values = [0.1]
 After modifying the paths, run the skeletonization script to generate the initial individual tree skeleton:
 
 ```bash
-python run_skeletonization.py
+python skeletonization.py
 ```
 
 **🔗 Step 2: Interwoven Optimization**
@@ -77,7 +77,7 @@ self.output_dir = r"./testdata/result_test/"
 After modifying the paths to match your local setup, simply run:
 
 ```bash
-python run_interwoven_optimization.py
+python interwoven_optimization.py
 ```
 
 **⚠️ Note on Downstream Applications:**

@@ -1,13 +1,28 @@
+"""Geometric and topological interwoven optimization for WDTS skeletons.
+
+The public entry point is :func:`run_interwoven_optimization`.  It accepts one
+TLS point-cloud file, one skeleton file, and an output path, so callers do not
+need to edit source-level directory constants before running the algorithm.
+
+The numerical procedure is intentionally kept separate from file orchestration:
+geometry refinement alternates with topology reconstruction, while optional
+intermediate files are controlled by :class:`InterwovenOptimizationConfig`.
+"""
+
+from __future__ import annotations
+
+from collections import defaultdict, deque
+from copy import deepcopy
+from dataclasses import dataclass, field
+import heapq
+from pathlib import Path
+
+from joblib import Parallel, delayed
 import numpy as np
 import open3d as o3d
-from scipy.spatial import Delaunay, cKDTree as KDTree
-from scipy.optimize import minimize
-import itertools
-import heapq
-from collections import deque, defaultdict
-import os
 import pandas as pd
-from joblib import Parallel, delayed
+from scipy.optimize import minimize
+from scipy.spatial import Delaunay, cKDTree as KDTree
 
 try:
     from tqdm import tqdm
@@ -16,95 +31,167 @@ except ImportError:
     TQDM_AVAILABLE = False
 
 
-class Parameters:
-    def __init__(self):
-        # Please set the input directory of the skeleton files for interwoven optimization.
-        self.sk_input_dir = r"/home/graper/PycharmProjects/WDTS/Water drop model guided by Bayesian topology and single tree modeling for allometric growth global optimization/tree13"
-        # Please set the input directory of the corresponding point cloud files.
-        self.tls_input_dir = r"/home/graper/PycharmProjects/Individual_tree_reconstruction_pure_data/Test_data"
-        # Please set the output directory for the optimization results.
-        self.output_dir = r"/home/graper/PycharmProjects/WDTS/Water drop model guided by Bayesian topology and single tree modeling for allometric growth global optimization/op"
+@dataclass
+class InterwovenOptimizationConfig:
+    """Configuration for geometric/topological interwoven optimization.
 
-        self.DEBUG_MODE = False
-        self.N_JOBS = -1
+    ``global_tree_radius``, ``max_rotation_angle``, and the edge-reference maps
+    are runtime state used by the original algorithm.  A fresh configuration is
+    created automatically for each call when ``config`` is omitted.
+    """
 
-        self.max_major_iterations = 2
-        self.convergence_threshold = 0.0001
+    debug_mode: bool = False
+    n_jobs: int = -1
+    save_intermediate_results: bool = False
 
-        self.global_tree_radius = 0.0
-        self.association_radius_factor = 2.0
+    max_major_iterations: int = 2
+    convergence_threshold: float = 0.0001
 
-        self.refinement_iterations = 10
-        self.step_rate = 0.1
-        self.gamma = 0.9
+    global_tree_radius: float = 0.0
+    association_radius_factor: float = 2.0
 
-        self.optimizer_method = 'SLSQP'
+    refinement_iterations: int = 10
+    step_rate: float = 0.1
 
-        self.enable_edge_noise_filtering = True
-        self.noise_filtering_n_std = 1
+    optimizer_method: str = "SLSQP"
 
-        self.enable_length_preservation = True
-        self.use_bounding_sphere_constraint = True
+    enable_edge_noise_filtering: bool = True
+    noise_filtering_n_std: float = 1.0
 
-        self.enable_rotation_constraint = True
-        self.rotation_decay_start = 20
-        self.rotation_decay_end = 5
-        self.max_rotation_angle = self.rotation_decay_start
+    enable_length_preservation: bool = True
+    use_bounding_sphere_constraint: bool = True
 
-        self.use_fixed_reference_for_rotation = True
-        self.use_fixed_reference_for_length = True
+    enable_rotation_constraint: bool = True
+    rotation_decay_start: float = 20.0
+    rotation_decay_end: float = 5.0
+    max_rotation_angle: float = 20.0
 
-        self.edge_ref_dir = {}
-        self.edge_ref_len = {}
+    use_fixed_reference_for_rotation: bool = True
+    use_fixed_reference_for_length: bool = True
 
-        self.enable_soft_assignment = False
-        self.soft_assignment_topk = 3
-        self.soft_assignment_sigma = 0.02
-        self.soft_assignment_temperature = 1.0
-        self.force_hard_winner = True
+    edge_ref_dir: dict[tuple[int, int], np.ndarray] = field(default_factory=dict)
+    edge_ref_len: dict[tuple[int, int], float] = field(default_factory=dict)
 
-        self.enable_global_smoothing = True
-        self.laplacian_lambda = 0.05
-        self.twohop_lambda = 0.05
-        self.smoothing_iterations = 1
+    enable_soft_assignment: bool = False
+    soft_assignment_topk: int = 3
+    soft_assignment_sigma: float = 0.02
+    soft_assignment_temperature: float = 1.0
+    force_hard_winner: bool = True
 
-        self.enable_post_projection = True
-        self.length_projection_weight = 0.8
-        self.angle_projection_weight = 0.6
-        self.projection_iterations = 2
+    enable_global_smoothing: bool = True
+    laplacian_lambda: float = 0.05
+    twohop_lambda: float = 0.05
+    smoothing_iterations: int = 1
 
-        self.enable_topology_update = True
-        self.topology_update_every_n_major = 1
+    enable_post_projection: bool = True
+    length_projection_weight: float = 0.8
+    angle_projection_weight: float = 0.6
+    projection_iterations: int = 2
 
-        self.enable_min_edge_length = True
-        self.min_edge_length_factor = 0.9
-        self.min_edge_projection_weight = 0.9
-        self.min_edge_projection_iterations = 1
+    enable_topology_update: bool = True
+    topology_update_every_n_major: int = 1
 
-        self.topology_method = 'layered'
-        self.topology_z_split_ratio = 0.2
-        self.topology_prune_percentile = 70
-        self.topology_inter_connect_k = 3
-        self.topology_K = 30
-        self.topology_alpha = 0.5
-        self.topology_beta = 0.5
-        self.pruning_min_branch_PATH_length = 0
+    enable_min_edge_length: bool = True
+    min_edge_length_factor: float = 0.9
+    min_edge_projection_weight: float = 0.9
+    min_edge_projection_iterations: int = 1
+
+    topology_prune_percentile: float = 70.0
+    topology_k: int = 30
+    topology_alpha: float = 0.5
+    topology_beta: float = 0.5
+
+    @property
+    def DEBUG_MODE(self) -> bool:
+        """Backward-compatible alias for :attr:`debug_mode`."""
+        return self.debug_mode
+
+    @DEBUG_MODE.setter
+    def DEBUG_MODE(self, value: bool) -> None:
+        self.debug_mode = bool(value)
+
+    @property
+    def N_JOBS(self) -> int:
+        """Backward-compatible alias for :attr:`n_jobs`."""
+        return self.n_jobs
+
+    @N_JOBS.setter
+    def N_JOBS(self, value: int) -> None:
+        self.n_jobs = int(value)
+
+    @property
+    def topology_K(self) -> int:
+        """Backward-compatible alias for :attr:`topology_k`."""
+        return self.topology_k
+
+    @topology_K.setter
+    def topology_K(self, value: int) -> None:
+        self.topology_k = int(value)
+
+    def validate(self) -> None:
+        """Reject configuration values that cannot produce a valid run."""
+        if self.max_major_iterations < 1:
+            raise ValueError("max_major_iterations must be at least 1.")
+        if self.refinement_iterations < 1:
+            raise ValueError("refinement_iterations must be at least 1.")
+        if self.n_jobs == 0:
+            raise ValueError("n_jobs cannot be zero; use -1 for all available cores.")
+        if self.association_radius_factor <= 0:
+            raise ValueError("association_radius_factor must be positive.")
+        if self.convergence_threshold < 0:
+            raise ValueError("convergence_threshold cannot be negative.")
+        if self.enable_topology_update and self.topology_update_every_n_major < 1:
+            raise ValueError("topology_update_every_n_major must be at least 1.")
+        if self.topology_k < 1:
+            raise ValueError("topology_k must be at least 1.")
+        if not 0.0 <= self.topology_prune_percentile <= 100.0:
+            raise ValueError("topology_prune_percentile must be between 0 and 100.")
+        if self.enable_soft_assignment and not self.force_hard_winner and self.soft_assignment_topk < 1:
+            raise ValueError("soft_assignment_topk must be at least 1 when soft assignment is active.")
 
 
-def edge_key(u, v):
+@dataclass(frozen=True)
+class InterwovenOptimizationResult:
+    """Result returned by :func:`run_interwoven_optimization`."""
+
+    points: np.ndarray
+    edges: np.ndarray
+    output_path: Path
+
+
+# The historical class name remains importable for existing scripts.
+Parameters = InterwovenOptimizationConfig
+
+
+__all__ = [
+    "InterwovenOptimizationConfig",
+    "InterwovenOptimizationResult",
+    "Parameters",
+    "estimate_trunk_base_radius",
+    "optimize_skeleton_geometry",
+    "reconstruct_skeleton_topology",
+    "load_tls_point_cloud",
+    "load_skeleton",
+    "save_skeleton",
+    "run_interwoven_optimization",
+    "Interwoven_optimization",
+]
+
+
+def _canonical_edge(u: int, v: int) -> tuple[int, int]:
     return (u, v) if u < v else (v, u)
 
 
-def safe_unit(v):
-    n = np.linalg.norm(v)
+def _unit_vector_or_none(vector: np.ndarray):
+    n = np.linalg.norm(vector)
     if n < 1e-12:
         return None
-    return v / n
+    return vector / n
 
 
-def init_edge_references(parameters, sk_coords, edges):
+def initialize_edge_references(parameters, sk_coords, edges):
     for (u, v) in edges:
-        k = edge_key(int(u), int(v))
+        k = _canonical_edge(int(u), int(v))
         if k in parameters.edge_ref_dir and k in parameters.edge_ref_len:
             continue
         vec = sk_coords[int(v)] - sk_coords[int(u)]
@@ -116,7 +203,14 @@ def init_edge_references(parameters, sk_coords, edges):
         parameters.edge_ref_len[k] = L
 
 
-def _process_single_edge(edge_idx, edge, assigned_items, tls_coords, sk_coords_current, parameters):
+def _optimize_single_edge(
+    edge_idx,
+    edge,
+    assigned_items,
+    tls_coords,
+    sk_coords_current,
+    parameters,
+):
     u, v = int(edge[0]), int(edge[1])
 
     if assigned_items is None:
@@ -197,10 +291,10 @@ def _process_single_edge(edge_idx, edge, assigned_items, tls_coords, sk_coords_c
 
     if enable_rotation_constraint and max_rotation_angle >= 0.0:
         if parameters.use_fixed_reference_for_rotation:
-            k = edge_key(u, v)
+            k = _canonical_edge(u, v)
             ref_dir = parameters.edge_ref_dir.get(k, None)
         else:
-            ref_dir = safe_unit(v_orig - u_orig)
+            ref_dir = _unit_vector_or_none(v_orig - u_orig)
 
         if ref_dir is not None:
             cos_theta_max = float(np.cos(np.deg2rad(max_rotation_angle)))
@@ -225,7 +319,15 @@ def _process_single_edge(edge_idx, edge, assigned_items, tls_coords, sk_coords_c
     )
 
     if result.success:
-        edge_w = float(len(tls_indices)) if (not (isinstance(assigned_items[0], (tuple, list)) and len(assigned_items[0]) == 2)) else float(np.sum([w for _, w in assigned_items]))
+        has_assignment_weights = (
+            isinstance(assigned_items[0], (tuple, list))
+            and len(assigned_items[0]) == 2
+        )
+        edge_w = (
+            float(np.sum([w for _, w in assigned_items]))
+            if has_assignment_weights
+            else float(len(tls_indices))
+        )
         if edge_w < 1e-12:
             edge_w = 1.0
         return (u, v, result.x[0:3], result.x[3:6], edge_w)
@@ -233,7 +335,13 @@ def _process_single_edge(edge_idx, edge, assigned_items, tls_coords, sk_coords_c
     return None
 
 
-def visualize_debug_status(tls_points, sk_points, edges, edge_to_tls_items, title="Debug"):
+def visualize_optimization_state(
+    tls_points,
+    skeleton_points,
+    edges,
+    edge_to_tls_items,
+    title="Debug",
+):
     print(f"  [Debug] Rendering: {title} ... (close the window to continue)")
     geometries = []
 
@@ -242,7 +350,7 @@ def visualize_debug_status(tls_points, sk_points, edges, edge_to_tls_items, titl
     pcd.paint_uniform_color([0.7, 0.7, 0.7])
     geometries.append(pcd)
 
-    sk_coords = sk_points[:, :3]
+    sk_coords = skeleton_points[:, :3]
 
     if len(edges) > 0:
         sk_lines = o3d.geometry.LineSet()
@@ -317,23 +425,26 @@ def visualize_debug_status(tls_points, sk_points, edges, edge_to_tls_items, titl
         print("  [Debug Warning] No geometry available for rendering.")
 
 
-def calculate_trunk_radius_at_base(skPoints, tlsPoints, slice_height=0.2):
-    if skPoints is None or len(skPoints) == 0:
+def estimate_trunk_base_radius(skeleton_points, tls_points, slice_height=0.2):
+    if skeleton_points is None or len(skeleton_points) == 0:
         print("[Warning] Skeleton points are empty. Cannot calculate radius.")
         return 0.0
-    if tlsPoints is None or len(tlsPoints) == 0:
+    if tls_points is None or len(tls_points) == 0:
         print("[Warning] TLS point cloud is empty. Cannot calculate radius.")
         return 0.0
 
-    min_z_idx = np.argmin(skPoints[:, 2])
-    root_point = skPoints[min_z_idx]
+    min_z_idx = np.argmin(skeleton_points[:, 2])
+    root_point = skeleton_points[min_z_idx]
     root_z = root_point[2]
     root_xy = root_point[:2]
 
-    mask = (tlsPoints[:, 2] >= root_z) & (tlsPoints[:, 2] <= (root_z + slice_height))
-    points_in_slice = tlsPoints[mask]
+    mask = (tls_points[:, 2] >= root_z) & (tls_points[:, 2] <= (root_z + slice_height))
+    points_in_slice = tls_points[mask]
     if len(points_in_slice) == 0:
-        print(f"[Warning] No TLS points found within the bottom {slice_height} m range. Radius is set to 0.")
+        print(
+            f"[Warning] No TLS points found within the bottom {slice_height} m "
+            "range. Radius is set to 0."
+        )
         return 0.0
 
     slice_xy = points_in_slice[:, :2]
@@ -342,7 +453,7 @@ def calculate_trunk_radius_at_base(skPoints, tlsPoints, slice_height=0.2):
     return radius
 
 
-def global_smoothing(sk_coords, edges, parameters):
+def smooth_skeleton_globally(sk_coords, edges, parameters):
     if (not parameters.enable_global_smoothing) or edges is None or len(edges) == 0:
         return sk_coords
 
@@ -394,7 +505,7 @@ def global_smoothing(sk_coords, edges, parameters):
     return coords
 
 
-def project_edges_to_constraints(sk_coords, edges, parameters, current_angle_limit_deg):
+def project_edges_onto_constraints(sk_coords, edges, parameters, current_angle_limit_deg):
     if (not parameters.enable_post_projection) or edges is None or len(edges) == 0:
         return sk_coords
 
@@ -418,10 +529,18 @@ def project_edges_to_constraints(sk_coords, edges, parameters, current_angle_lim
                 continue
 
             cur_dir = vec / L
-            k = edge_key(u, v)
+            k = _canonical_edge(u, v)
 
-            ref_dir = parameters.edge_ref_dir.get(k, None) if parameters.use_fixed_reference_for_rotation else None
-            ref_len = parameters.edge_ref_len.get(k, None) if parameters.use_fixed_reference_for_length else None
+            ref_dir = (
+                parameters.edge_ref_dir.get(k, None)
+                if parameters.use_fixed_reference_for_rotation
+                else None
+            )
+            ref_len = (
+                parameters.edge_ref_len.get(k, None)
+                if parameters.use_fixed_reference_for_length
+                else None
+            )
 
             if ref_dir is not None and wA > 0:
                 dotp = float(np.dot(cur_dir, ref_dir))
@@ -432,11 +551,22 @@ def project_edges_to_constraints(sk_coords, edges, parameters, current_angle_lim
 
                     if nu > 1e-12:
                         uvec = uvec / nu
-                        target_dir = cos_limit * ref_dir + float(np.sin(np.deg2rad(current_angle_limit_deg))) * uvec
-                        target_dir = safe_unit(target_dir)
+                        target_dir = (
+                            cos_limit * ref_dir
+                            + float(np.sin(np.deg2rad(current_angle_limit_deg)))
+                            * uvec
+                        )
+                        target_dir = _unit_vector_or_none(target_dir)
 
                         if target_dir is not None:
-                            use_len = ref_len if (ref_len is not None and parameters.use_fixed_reference_for_length) else L
+                            use_len = (
+                                ref_len
+                                if (
+                                    ref_len is not None
+                                    and parameters.use_fixed_reference_for_length
+                                )
+                                else L
+                            )
                             p1_t = mid - 0.5 * use_len * target_dir
                             p2_t = mid + 0.5 * use_len * target_dir
 
@@ -464,8 +594,12 @@ def project_edges_to_constraints(sk_coords, edges, parameters, current_angle_lim
     return coords
 
 
-def enforce_min_edge_length(sk_coords, edges, parameters):
-    if (not getattr(parameters, "enable_min_edge_length", False)) or edges is None or len(edges) == 0:
+def enforce_minimum_edge_length(sk_coords, edges, parameters):
+    if (
+        not getattr(parameters, "enable_min_edge_length", False)
+        or edges is None
+        or len(edges) == 0
+    ):
         return sk_coords
 
     coords = sk_coords.copy()
@@ -478,7 +612,7 @@ def enforce_min_edge_length(sk_coords, edges, parameters):
             u = int(u)
             v = int(v)
 
-            k = edge_key(u, v)
+            k = _canonical_edge(u, v)
             ref_len = parameters.edge_ref_len.get(k, None)
             if ref_len is None:
                 continue
@@ -513,16 +647,26 @@ def enforce_min_edge_length(sk_coords, edges, parameters):
     return coords
 
 
-def Geometric_optimization(tlsPoints, skPoints, edges, parameters, **kwargs):
-    if edges is None or len(edges) == 0 or tlsPoints is None or len(tlsPoints) == 0:
-        return skPoints
+def optimize_skeleton_geometry(
+    tls_points,
+    skeleton_points,
+    edges,
+    parameters,
+    *,
+    major_iteration_number=1,
+    intermediate_output_stem=None,
+):
+    """Refine skeleton coordinates for one major interwoven iteration."""
+    if edges is None or len(edges) == 0 or tls_points is None or len(tls_points) == 0:
+        return skeleton_points
 
-    optimized_skPoints = np.copy(skPoints)
-    tls_coords = tlsPoints[:, :3]
+    optimized_skeleton_points = np.copy(skeleton_points)
+    tls_coords = tls_points[:, :3]
 
-    major_iteration_num = kwargs.get('major_iteration_num', 1)
-    base_output_path = kwargs.get('base_output_path', "")
-    can_save_inner_results = base_output_path and major_iteration_num > 0
+    output_stem = "" if intermediate_output_stem is None else str(intermediate_output_stem)
+    can_save_inner_results = bool(
+        parameters.save_intermediate_results and output_stem and major_iteration_number > 0
+    )
 
     iterable_inner = tqdm(
         range(parameters.refinement_iterations),
@@ -533,17 +677,18 @@ def Geometric_optimization(tlsPoints, skPoints, edges, parameters, **kwargs):
 
     for i in iterable_inner:
         total_steps = parameters.max_major_iterations * parameters.refinement_iterations
-        current_global_step = (major_iteration_num - 1) * parameters.refinement_iterations + i
+        current_global_step = (major_iteration_number - 1) * parameters.refinement_iterations + i
         progress = min(1.0, current_global_step / max(1, total_steps - 1))
 
-        current_angle_limit = parameters.rotation_decay_start - \
-                              (parameters.rotation_decay_start - parameters.rotation_decay_end) * progress
+        current_angle_limit = parameters.rotation_decay_start - (
+            parameters.rotation_decay_start - parameters.rotation_decay_end
+        ) * progress
         parameters.max_rotation_angle = float(current_angle_limit)
 
         if TQDM_AVAILABLE:
             iterable_inner.set_postfix(angle=f"{current_angle_limit:.1f}°")
 
-        sk_coords_current = optimized_skPoints[:, :3]
+        sk_coords_current = optimized_skeleton_points[:, :3]
         edge_to_tls_items = defaultdict(list)
 
         sk_tree = KDTree(sk_coords_current)
@@ -603,7 +748,10 @@ def Geometric_optimization(tlsPoints, skPoints, edges, parameters, **kwargs):
                 distances = np.linalg.norm(p - proj, axis=1)
 
                 if parameters.global_tree_radius > 0:
-                    dist_threshold = parameters.global_tree_radius * parameters.association_radius_factor
+                    dist_threshold = (
+                        parameters.global_tree_radius
+                        * parameters.association_radius_factor
+                    )
                     dist_mask = distances <= dist_threshold
                     if not np.any(dist_mask):
                         continue
@@ -682,25 +830,32 @@ def Geometric_optimization(tlsPoints, skPoints, edges, parameters, **kwargs):
                     continue
 
                 if isinstance(items[0], (tuple, list)) and len(items[0]) == 2:
-                    new_items = [(int(tls_indices[i]), float(tls_weights[i])) for i in range(len(keep)) if keep[i]]
+                    new_items = [
+                        (int(tls_indices[i]), float(tls_weights[i]))
+                        for i in range(len(keep))
+                        if keep[i]
+                    ]
                     filtered[edge_idx] = new_items
                 else:
                     filtered[edge_idx] = [int(tls_indices[i]) for i in range(len(keep)) if keep[i]]
 
             edge_to_tls_items = filtered
 
-        if parameters.DEBUG_MODE:
-            step_name = f"Iter {major_iteration_num}-{i + 1} (Angle: {parameters.max_rotation_angle:.1f})"
-            visualize_debug_status(
-                tlsPoints,
-                optimized_skPoints,
+        if parameters.debug_mode:
+            step_name = (
+                f"Iter {major_iteration_number}-{i + 1} "
+                f"(Angle: {parameters.max_rotation_angle:.1f})"
+            )
+            visualize_optimization_state(
+                tls_points,
+                optimized_skeleton_points,
                 edges,
                 edge_to_tls_items,
                 title=step_name
             )
 
         tasks = [
-            delayed(_process_single_edge)(
+            delayed(_optimize_single_edge)(
                 idx,
                 edge,
                 edge_to_tls_items.get(idx),
@@ -711,7 +866,7 @@ def Geometric_optimization(tlsPoints, skPoints, edges, parameters, **kwargs):
             for idx, edge in enumerate(edges)
         ]
 
-        results = Parallel(n_jobs=parameters.N_JOBS, backend="threading")(tasks)
+        results = Parallel(n_jobs=parameters.n_jobs, backend="threading")(tasks)
 
         sum_of_positions = np.zeros_like(sk_coords_current)
         update_weights = np.zeros(len(sk_coords_current), dtype=float)
@@ -738,69 +893,190 @@ def Geometric_optimization(tlsPoints, skPoints, edges, parameters, **kwargs):
         updated_indices = np.where(update_weights > 0)[0]
         if len(updated_indices) > 0:
             avg_pos = sum_of_positions[updated_indices] / update_weights[updated_indices, None]
-            optimized_skPoints[updated_indices, :3] = avg_pos
+            optimized_skeleton_points[updated_indices, :3] = avg_pos
 
-        optimized_skPoints[:, :3] = global_smoothing(optimized_skPoints[:, :3], edges, parameters)
-
-        if can_save_inner_results:
-            out_smooth = f"{base_output_path}_major_{major_iteration_num}_inner_{i + 1}_global_smoothing.ply"
-            save_skeleton(out_smooth, optimized_skPoints, edges)
-
-        optimized_skPoints[:, :3] = project_edges_to_constraints(
-            optimized_skPoints[:, :3], edges, parameters, current_angle_limit_deg=parameters.max_rotation_angle
+        optimized_skeleton_points[:, :3] = smooth_skeleton_globally(
+            optimized_skeleton_points[:, :3], edges, parameters
         )
 
         if can_save_inner_results:
-            out_proj = f"{base_output_path}_major_{major_iteration_num}_inner_{i + 1}_project_edges_to_constraints.ply"
-            save_skeleton(out_proj, optimized_skPoints, edges)
+            out_smooth = (
+                f"{output_stem}_major_{major_iteration_number}_inner_{i + 1}"
+                "_global_smoothing.ply"
+            )
+            save_skeleton(out_smooth, optimized_skeleton_points, edges)
 
-        optimized_skPoints[:, :3] = enforce_min_edge_length(optimized_skPoints[:, :3], edges, parameters)
+        optimized_skeleton_points[:, :3] = project_edges_onto_constraints(
+            optimized_skeleton_points[:, :3],
+            edges,
+            parameters,
+            current_angle_limit_deg=parameters.max_rotation_angle,
+        )
 
         if can_save_inner_results:
-            out_minedge = f"{base_output_path}_major_{major_iteration_num}_inner_{i + 1}_enforce_min_edge_length.ply"
-            save_skeleton(out_minedge, optimized_skPoints, edges)
+            out_proj = (
+                f"{output_stem}_major_{major_iteration_number}_inner_{i + 1}"
+                "_project_edges_onto_constraints.ply"
+            )
+            save_skeleton(out_proj, optimized_skeleton_points, edges)
+
+        optimized_skeleton_points[:, :3] = enforce_minimum_edge_length(
+            optimized_skeleton_points[:, :3], edges, parameters
+        )
 
         if can_save_inner_results:
-            inner_loop_output_path = f"{base_output_path}_major_{major_iteration_num}_inner_{i + 1}.ply"
-            save_skeleton(inner_loop_output_path, optimized_skPoints, edges)
+            out_minedge = (
+                f"{output_stem}_major_{major_iteration_number}_inner_{i + 1}"
+                "_enforce_minimum_edge_length.ply"
+            )
+            save_skeleton(out_minedge, optimized_skeleton_points, edges)
 
-    return optimized_skPoints
+        if can_save_inner_results:
+            inner_loop_output_path = (
+                f"{output_stem}_major_{major_iteration_number}"
+                f"_inner_{i + 1}.ply"
+            )
+            save_skeleton(inner_loop_output_path, optimized_skeleton_points, edges)
+
+    return optimized_skeleton_points
 
 
-def load_tls_points(filepath):
+def _validate_xyz_points(points, *, path, data_name, minimum_points):
+    points = np.asarray(points, dtype=np.float64)
+    if points.ndim != 2 or points.shape[1] != 3:
+        raise ValueError(f"{data_name} must provide exactly three selected xyz columns: {path}")
+    if len(points) < minimum_points:
+        raise ValueError(
+            f"{data_name} must contain at least {minimum_points} points; found {len(points)}: {path}"
+        )
+    if not np.all(np.isfinite(points)):
+        raise ValueError(f"{data_name} contains NaN or infinite xyz coordinates: {path}")
+    return points
+
+
+def _load_xyz_text(filepath: str | Path, *, data_name: str, minimum_points: int) -> np.ndarray:
+    """Read the first three numeric columns from a delimited text file.
+
+    The first non-comment row may either be data or a column header.  This
+    avoids the previous ``header=0`` behavior, which discarded the first point
+    from headerless files.
+    """
+    path = Path(filepath)
+    if not path.is_file():
+        raise FileNotFoundError(f"{data_name} file does not exist: {path}")
+
     try:
-        return pd.read_csv(filepath, delim_whitespace=True, header=0, engine='c').to_numpy()
-    except Exception as e:
-        print(f"  [Error] Failed to load TLS point cloud: {filepath}. Reason: {e}")
-        return None
+        table = pd.read_csv(
+            path,
+            sep=r"[\s,;]+",
+            comment="#",
+            header=None,
+            engine="python",
+        )
+    except Exception as exc:
+        raise ValueError(f"Failed to parse {data_name} file '{path}': {exc}") from exc
+
+    if table.shape[1] < 3:
+        raise ValueError(
+            f"{data_name} file must contain at least three columns (x, y, z): {path}"
+        )
+
+    xyz = table.iloc[:, :3].apply(pd.to_numeric, errors="coerce")
+    valid_rows = xyz.notna().all(axis=1).to_numpy()
+    invalid_rows = np.flatnonzero(~valid_rows)
+    if len(invalid_rows) > 0:
+        header = [str(value).strip().lower() for value in table.iloc[0, :3]]
+        has_xyz_header = int(invalid_rows[0]) == 0 and header == ["x", "y", "z"]
+        invalid_data_rows = invalid_rows[invalid_rows != 0] if has_xyz_header else invalid_rows
+        if not has_xyz_header or len(invalid_data_rows) > 0:
+            bad_row = int(invalid_data_rows[0]) + 1
+            raise ValueError(
+                f"{data_name} contains invalid xyz data at parsed row {bad_row}; "
+                f"only one optional x/y/z header is allowed: {path}"
+            )
+
+    points = xyz.loc[valid_rows].to_numpy(dtype=np.float64)
+    return _validate_xyz_points(
+        points,
+        path=path,
+        data_name=data_name,
+        minimum_points=minimum_points,
+    )
 
 
-def load_skeleton_points(filepath):
-    try:
-        return pd.read_csv(filepath, delim_whitespace=True, header=0, engine='c', usecols=[0, 1, 2]).to_numpy()
-    except Exception as e:
-        print(f"  [Error] Failed to load skeleton points: {filepath}. Reason: {e}")
-        return None
+def load_tls_point_cloud(filepath: str | Path) -> np.ndarray:
+    """Load TLS xyz coordinates from TXT, CSV, XYZ, PLY, or PCD input."""
+    path = Path(filepath)
+    if path.suffix.lower() in {".ply", ".pcd"}:
+        if not path.is_file():
+            raise FileNotFoundError(f"TLS point-cloud file does not exist: {path}")
+        point_cloud = o3d.io.read_point_cloud(str(path))
+        points = np.asarray(point_cloud.points, dtype=np.float64)
+        return _validate_xyz_points(
+            points,
+            path=path,
+            data_name="TLS point cloud",
+            minimum_points=3,
+        )
+    return _load_xyz_text(path, data_name="TLS point cloud", minimum_points=3)
 
 
-def save_skeleton(filepath, points, edges):
-    if points is None or edges is None or len(points) == 0:
-        return
+def load_skeleton(filepath: str | Path) -> np.ndarray:
+    """Load skeleton vertices from a TXT, CSV, or PLY file."""
+    path = Path(filepath)
+    suffix = path.suffix.lower()
+    if suffix in {".txt", ".csv"}:
+        return _load_xyz_text(path, data_name="Skeleton", minimum_points=2)
+    if suffix != ".ply":
+        raise ValueError(
+            f"Unsupported skeleton format '{path.suffix}'. Use .txt, .csv, or .ply: {path}"
+        )
+    if not path.is_file():
+        raise FileNotFoundError(f"Skeleton file does not exist: {path}")
+
+    line_set = o3d.io.read_line_set(str(path))
+    points = np.asarray(line_set.points, dtype=np.float64)
+    if len(points) == 0:
+        point_cloud = o3d.io.read_point_cloud(str(path))
+        points = np.asarray(point_cloud.points, dtype=np.float64)
+    return _validate_xyz_points(
+        points,
+        path=path,
+        data_name="Skeleton",
+        minimum_points=2,
+    )
+
+
+def save_skeleton(
+    filepath: str | Path,
+    points: np.ndarray,
+    edges: np.ndarray,
+) -> None:
+    """Write skeleton vertices and edges as an ASCII PLY line set."""
+    if points is None or len(points) == 0:
+        raise ValueError("Cannot save an empty skeleton point array.")
+    if edges is None:
+        raise ValueError("Cannot save a skeleton without an edge array.")
+
+    path = Path(filepath)
+    if path.suffix.lower() != ".ply":
+        raise ValueError(f"Skeleton output path must use the .ply extension: {path}")
+
     line_set = o3d.geometry.LineSet(
         points=o3d.utility.Vector3dVector(points[:, :3]),
         lines=o3d.utility.Vector2iVector(edges)
     )
-    output_dir = os.path.dirname(filepath)
-    if output_dir and not os.path.exists(output_dir):
-        os.makedirs(output_dir, exist_ok=True)
-    o3d.io.write_line_set(filepath, line_set, write_ascii=True)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    if not o3d.io.write_line_set(str(path), line_set, write_ascii=True):
+        raise OSError(f"Failed to write optimized skeleton: {path}")
 
 
-def Topological_optimization_using_hrbrid_Delaunay_and_dmst(parameters, skPoints):
-    if skPoints is None or len(skPoints) < 2:
+def reconstruct_skeleton_topology(parameters, skeleton_points):
+    """Reconstruct skeleton edges with the original hybrid Delaunay/DMST method."""
+    if skeleton_points is None or len(skeleton_points) < 2:
         return None
 
-    points_3d = np.asarray(skPoints[:, :3], dtype=np.float64)
+    points_3d = np.asarray(skeleton_points[:, :3], dtype=np.float64)
 
     def _ensure_connectivity(points, adj):
         components = []
@@ -839,7 +1115,7 @@ def Topological_optimization_using_hrbrid_Delaunay_and_dmst(parameters, skPoints
         num_points = len(points)
         adj = {i: set() for i in range(num_points)}
 
-        k_val = getattr(params, "topology_K", 16)
+        k_val = getattr(params, "topology_k", 16)
         k_val = min(k_val, num_points - 1)
         kdtree = KDTree(points)
         _, indices = kdtree.query(points, k=k_val + 1, workers=-1)
@@ -914,8 +1190,11 @@ def Topological_optimization_using_hrbrid_Delaunay_and_dmst(parameters, skPoints
                 for u, v in valid_edges:
                     adj[int(u)].add(int(v))
                     adj[int(v)].add(int(u))
-        except Exception as e:
-            print(f"  [Warning] Global Delaunay construction failed: {e}. Using only local connections.")
+        except Exception as exc:
+            print(
+                f"  [Warning] Global Delaunay construction failed: {exc}. "
+                "Using only local connections."
+            )
 
         return adj
 
@@ -934,7 +1213,10 @@ def Topological_optimization_using_hrbrid_Delaunay_and_dmst(parameters, skPoints
             neighbor = int(neighbor)
             mst_dist = float(np.linalg.norm(points[start_node_idx] - points[neighbor]))
             dijkstra_dist = float(dist_to_root[start_node_idx] + mst_dist)
-            total_weight = float(params.topology_alpha * mst_dist + params.topology_beta * dijkstra_dist)
+            total_weight = float(
+                params.topology_alpha * mst_dist
+                + params.topology_beta * dijkstra_dist
+            )
             heapq.heappush(edge_heap, (total_weight, neighbor, start_node_idx))
 
         while edge_heap and len(in_tree) < num_points:
@@ -952,7 +1234,10 @@ def Topological_optimization_using_hrbrid_Delaunay_and_dmst(parameters, skPoints
                 if neighbor not in in_tree:
                     mst_dist = float(np.linalg.norm(points[new_node] - points[neighbor]))
                     dijkstra_dist = float(dist_to_root[new_node] + mst_dist)
-                    total_weight = float(params.topology_alpha * mst_dist + params.topology_beta * dijkstra_dist)
+                    total_weight = float(
+                        params.topology_alpha * mst_dist
+                        + params.topology_beta * dijkstra_dist
+                    )
                     heapq.heappush(edge_heap, (total_weight, neighbor, new_node))
 
         edges = [[int(p_idx), int(i)] for i, p_idx in enumerate(parent) if p_idx != -1]
@@ -964,129 +1249,172 @@ def Topological_optimization_using_hrbrid_Delaunay_and_dmst(parameters, skPoints
     return final_edges
 
 
-def Interwoven_optimization(params, tls_path, sk_path, output_path):
-    try:
-        tls_points = load_tls_points(tls_path)
-        current_sk_points = load_skeleton_points(sk_path)
-        if tls_points is None or current_sk_points is None:
-            return
+def run_interwoven_optimization(
+    tls_path: str | Path,
+    skeleton_path: str | Path,
+    output_path: str | Path,
+    config: InterwovenOptimizationConfig | None = None,
+) -> InterwovenOptimizationResult:
+    """Run interwoven optimization for one TLS/skeleton pair.
 
-        tree_radius = calculate_trunk_radius_at_base(current_sk_points, tls_points, slice_height=0.2)
-        params.global_tree_radius = float(tree_radius)
-        print(f"  [Info] Automatically computed tree radius: {tree_radius:.4f} m, "
-              f"distance threshold: {tree_radius * params.association_radius_factor:.4f} m")
+    Parameters
+    ----------
+    tls_path:
+        Headered/headerless text, PLY, or PCD point cloud.
+    skeleton_path:
+        Initial skeleton vertices in TXT, CSV, or PLY format.
+    output_path:
+        Destination PLY file for the optimized line-set skeleton.
+    config:
+        Optional :class:`InterwovenOptimizationConfig`.  The default preserves
+        the numerical settings of the original implementation.
 
-        current_edges = Topological_optimization_using_hrbrid_Delaunay_and_dmst(params, current_sk_points)
-        if current_edges is None or len(current_edges) == 0:
-            return
+    Returns
+    -------
+    InterwovenOptimizationResult
+        Optimized points, reconstructed edges, and the final output path.
 
-        init_edge_references(params, current_sk_points[:, :3], current_edges)
+    Notes
+    -----
+    Input, topology, optimization, and output errors intentionally propagate to
+    the caller.  This makes failed runs visible to scripts and batch pipelines.
+    """
+    # The algorithm updates radius, angle, and edge-reference state while it
+    # runs.  Work on a private copy so callers can safely reuse their config.
+    parameters = deepcopy(config) if config is not None else InterwovenOptimizationConfig()
+    final_output_path = Path(output_path)
+    parameters.validate()
+    if final_output_path.suffix.lower() != ".ply":
+        raise ValueError(
+            f"Interwoven optimization output must be a .ply file: {final_output_path}"
+        )
+    resolved_output = final_output_path.expanduser().resolve()
+    for input_label, input_path in (("TLS input", tls_path), ("skeleton input", skeleton_path)):
+        if resolved_output == Path(input_path).expanduser().resolve():
+            raise ValueError(f"Output path must not overwrite the {input_label}: {final_output_path}")
 
-        base_output, ext_output = os.path.splitext(output_path)
+    # Edge references are specific to one input skeleton.  They remain fixed
+    # across all major iterations in this run, as in the original algorithm.
+    parameters.edge_ref_dir.clear()
+    parameters.edge_ref_len.clear()
 
-        for i in range(params.max_major_iterations):
-            major_loop_num = i + 1
-            points_before_major_loop = np.copy(current_sk_points)
+    tls_points = load_tls_point_cloud(tls_path)
+    current_skeleton_points = load_skeleton(skeleton_path)
 
-            current_sk_points = Geometric_optimization(
-                tls_points,
-                current_sk_points,
+    tree_radius = estimate_trunk_base_radius(
+        current_skeleton_points,
+        tls_points,
+        slice_height=0.2,
+    )
+    parameters.global_tree_radius = float(tree_radius)
+    print(
+        f"  [Info] Automatically computed tree radius: {tree_radius:.4f} m, "
+        f"distance threshold: "
+        f"{tree_radius * parameters.association_radius_factor:.4f} m"
+    )
+
+    current_edges = reconstruct_skeleton_topology(parameters, current_skeleton_points)
+    if current_edges is None or len(current_edges) == 0:
+        raise RuntimeError(
+            f"Initial topology reconstruction produced no edges for '{skeleton_path}'."
+        )
+
+    initialize_edge_references(
+        parameters,
+        current_skeleton_points[:, :3],
+        current_edges,
+    )
+
+    output_stem = str(final_output_path.with_suffix(""))
+    output_extension = final_output_path.suffix
+
+    for major_iteration_index in range(parameters.max_major_iterations):
+        major_iteration_number = major_iteration_index + 1
+        points_before_major_iteration = np.copy(current_skeleton_points)
+
+        current_skeleton_points = optimize_skeleton_geometry(
+            tls_points,
+            current_skeleton_points,
+            current_edges,
+            parameters,
+            major_iteration_number=major_iteration_number,
+            intermediate_output_stem=output_stem,
+        )
+
+        should_update_topology = (
+            parameters.enable_topology_update
+            and major_iteration_number % parameters.topology_update_every_n_major == 0
+        )
+        if should_update_topology:
+            new_edges = reconstruct_skeleton_topology(parameters, current_skeleton_points)
+            if new_edges is None or len(new_edges) == 0:
+                raise RuntimeError(
+                    "Topology reconstruction produced no edges at major iteration "
+                    f"{major_iteration_number}."
+                )
+            current_edges = new_edges
+            initialize_edge_references(
+                parameters,
+                current_skeleton_points[:, :3],
                 current_edges,
-                params,
-                major_iteration_num=major_loop_num,
-                base_output_path=base_output
             )
 
-            if params.enable_topology_update and (major_loop_num % params.topology_update_every_n_major == 0):
-                new_edges = Topological_optimization_using_hrbrid_Delaunay_and_dmst(params, current_sk_points)
-                if new_edges is None or len(new_edges) == 0:
-                    current_edges = []
-                    break
-                current_edges = new_edges
-                init_edge_references(params, current_sk_points[:, :3], current_edges)
+        if parameters.save_intermediate_results:
+            iteration_output_path = (
+                f"{output_stem}_major_iter_{major_iteration_number}"
+                f"{output_extension}"
+            )
+            save_skeleton(iteration_output_path, current_skeleton_points, current_edges)
 
-            iter_save_path = f"{base_output}_major_iter_{major_loop_num}{ext_output}"
-            save_skeleton(iter_save_path, current_sk_points, current_edges)
+        if len(current_skeleton_points) == len(points_before_major_iteration):
+            displacement = np.linalg.norm(
+                current_skeleton_points[:, :3]
+                - points_before_major_iteration[:, :3],
+                axis=1,
+            )
+            if float(np.mean(displacement)) < float(parameters.convergence_threshold):
+                break
 
-            if len(current_sk_points) == len(points_before_major_loop):
-                displacement = np.linalg.norm(
-                    current_sk_points[:, :3] - points_before_major_loop[:, :3],
-                    axis=1
-                )
-                if float(np.mean(displacement)) < float(params.convergence_threshold):
-                    break
-
-        save_skeleton(output_path, current_sk_points, current_edges)
-
-    except Exception as e:
-        print(f"  [Processing Failed] Error occurred in file {os.path.basename(sk_path)}: {e}")
-
-
-if __name__ == "__main__":
-    step_rates_to_test = [0.1]
-
-    base_params = Parameters()
-
-    try:
-        skeleton_files = [
-            f for f in os.listdir(base_params.sk_input_dir)
-            if f.endswith(('.txt', '.csv'))
-        ]
-        if not skeleton_files:
-            print(f"[Error] No files found in directory {base_params.sk_input_dir}.")
-            exit()
-    except FileNotFoundError:
-        print(f"[Error] Skeleton input directory does not exist: {base_params.sk_input_dir}")
-        exit()
-
-    print(
-        "#" * 70 +
-        f"\nStart batch processing (parallel mode, N_JOBS={base_params.N_JOBS})\n"
-        f"Found {len(skeleton_files)} files and {len(step_rates_to_test)} parameter groups\n" +
-        "#" * 70 +
-        "\n"
+    save_skeleton(final_output_path, current_skeleton_points, current_edges)
+    return InterwovenOptimizationResult(
+        points=current_skeleton_points,
+        edges=np.asarray(current_edges, dtype=int),
+        output_path=final_output_path,
     )
 
-    outer_iter = tqdm(step_rates_to_test, desc="Overall progress of parameter batch testing") if TQDM_AVAILABLE else step_rates_to_test
 
-    for rate in outer_iter:
-        main_params = Parameters()
-
-        for key, value in base_params.__dict__.items():
-            setattr(main_params, key, value)
-
-        main_params.step_rate = float(rate)
-
-        param_specific_output_dir = os.path.join(main_params.output_dir, f"step_rate_{rate}")
-        os.makedirs(param_specific_output_dir, exist_ok=True)
-
-        file_iterator = tqdm(
-            skeleton_files,
-            desc=f"Processing files (rate={rate})",
-            leave=False,
-            ncols=120,
-            mininterval=1.0
-        ) if TQDM_AVAILABLE else skeleton_files
-
-        for sk_filename in file_iterator:
-            if TQDM_AVAILABLE:
-                file_iterator.set_postfix_str(f"{sk_filename}", refresh=True)
-
-            current_sk_path = os.path.join(main_params.sk_input_dir, sk_filename)
-            current_tls_path = os.path.join(main_params.tls_input_dir, sk_filename)
-            if not os.path.exists(current_tls_path):
-                continue
-
-            output_filename = os.path.splitext(sk_filename)[0] + ".ply"
-            final_output_path = os.path.join(param_specific_output_dir, output_filename)
-
-            main_params.edge_ref_dir = {}
-            main_params.edge_ref_len = {}
-
-            Interwoven_optimization(main_params, current_tls_path, current_sk_path, final_output_path)
-
-    print(
-        "\n" + "#" * 60 +
-        "\n            All parameters and files have been processed.\n" +
-        "#" * 60
+def Interwoven_optimization(params, tls_path, sk_path, output_path):
+    """Signature-compatible wrapper with isolated runtime state."""
+    return run_interwoven_optimization(
+        tls_path=tls_path,
+        skeleton_path=sk_path,
+        output_path=output_path,
+        config=params,
     )
+
+
+# Compatibility aliases for callers that imported the historical helper names.
+edge_key = _canonical_edge
+safe_unit = _unit_vector_or_none
+init_edge_references = initialize_edge_references
+visualize_debug_status = visualize_optimization_state
+calculate_trunk_radius_at_base = estimate_trunk_base_radius
+global_smoothing = smooth_skeleton_globally
+project_edges_to_constraints = project_edges_onto_constraints
+enforce_min_edge_length = enforce_minimum_edge_length
+
+
+def Geometric_optimization(tlsPoints, skPoints, edges, parameters, **kwargs):
+    return optimize_skeleton_geometry(
+        tlsPoints,
+        skPoints,
+        edges,
+        parameters,
+        major_iteration_number=kwargs.get("major_iteration_num", 1),
+        intermediate_output_stem=kwargs.get("base_output_path"),
+    )
+
+
+load_tls_points = load_tls_point_cloud
+load_skeleton_points = load_skeleton
+Topological_optimization_using_hrbrid_Delaunay_and_dmst = reconstruct_skeleton_topology

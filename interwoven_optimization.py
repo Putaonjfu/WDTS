@@ -103,7 +103,7 @@ class InterwovenOptimizationConfig:
 
     @property
     def DEBUG_MODE(self) -> bool:
-        """Backward-compatible alias for :attr:`debug_mode`."""
+        """Alias for :attr:`debug_mode`."""
         return self.debug_mode
 
     @DEBUG_MODE.setter
@@ -112,7 +112,7 @@ class InterwovenOptimizationConfig:
 
     @property
     def N_JOBS(self) -> int:
-        """Backward-compatible alias for :attr:`n_jobs`."""
+        """Alias for :attr:`n_jobs`."""
         return self.n_jobs
 
     @N_JOBS.setter
@@ -121,7 +121,7 @@ class InterwovenOptimizationConfig:
 
     @property
     def topology_K(self) -> int:
-        """Backward-compatible alias for :attr:`topology_k`."""
+        """Alias for :attr:`topology_k`."""
         return self.topology_k
 
     @topology_K.setter
@@ -159,7 +159,7 @@ class InterwovenOptimizationResult:
     output_path: Path
 
 
-# The historical class name remains importable for existing scripts.
+# Alternate class name accepted by existing WDTS scripts.
 Parameters = InterwovenOptimizationConfig
 
 
@@ -1393,7 +1393,7 @@ def Interwoven_optimization(params, tls_path, sk_path, output_path):
     )
 
 
-# Compatibility aliases for callers that imported the historical helper names.
+# Alternate helper names accepted by existing WDTS scripts.
 edge_key = _canonical_edge
 safe_unit = _unit_vector_or_none
 init_edge_references = initialize_edge_references

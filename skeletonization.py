@@ -75,8 +75,7 @@ class SkeletonizationConfig:
         self.max_radius = float(max_radius)
         self.epsilon = self.base_radius * 0.05
 
-    # Compatibility properties for code written against the debug release.
-    # New code should use the descriptive names above.
+    # Alternate parameter names accepted by existing configuration files.
     @property
     def r_base(self):
         return self.base_radius
@@ -1187,8 +1186,7 @@ def contract_water_droplets(point_cloud, parameters, savepath, tree_name):
                 droplet_state[droplet_index, :3] = optimization.x
                 ldi_value, pdi_value, sdi_value = compute_shape_descriptors(neighbor_points)
             else:
-                # The debug release referenced stale local variables here.  The
-                # assigned fallback descriptors make the intended update explicit.
+                # Use conservative descriptors when local optimization does not converge.
                 droplet_state[droplet_index, :3] = fallback_position
                 ldi_value, pdi_value, sdi_value = 0.0, 0.0, 1.0
 
@@ -1408,9 +1406,7 @@ def run_skeletonization(
     )
 
 
-# Selected compatibility wrappers cover the original core call sites.  Dead
-# debug-only helpers and unused configuration fields were intentionally pruned;
-# new code should use the descriptive API above.
+# Alternate names accepted by existing WDTS scripts.
 class Parameters(SkeletonizationConfig):
     def __init__(self, tree_root, r_base, max_radius):
         super().__init__(tree_root=tree_root, base_radius=r_base, max_radius=max_radius)

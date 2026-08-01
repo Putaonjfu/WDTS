@@ -9,7 +9,7 @@ WDTS extracts a compact, centered, and topologically coherent skeleton from an i
 
 ![WDTS pipeline](pipeline.png)
 
-## Quick start
+## Reproduction
 
 Python 3.10 is recommended.
 
@@ -31,13 +31,7 @@ results/Tree_1/
 `-- optimized_skeleton.ply
 ```
 
-## Commands
-
-Run the complete two-stage pipeline:
-
-```bash
-python run_wdts.py pipeline example_data/Tree_1.txt --output results
-```
+## Run individual stages
 
 Run skeletonization only:
 
@@ -51,7 +45,7 @@ Run interwoven optimization only:
 python run_wdts.py optimize --tls example_data/Tree_1.txt --skeleton example_data/Tree_1_ske_without_interwoven_op.ply --output results/Tree_1/optimized_skeleton.ply
 ```
 
-Use `python run_wdts.py --help` for all options. `python -m wdts` provides the same interface. Add `--save-intermediate` to retain per-iteration diagnostic files.
+Use `python run_wdts.py --help` for all options. Add `--save-intermediate` to retain per-iteration diagnostic files.
 
 ## Input and output
 
@@ -61,42 +55,6 @@ Use `python run_wdts.py --help` for all options. `python -m wdts` provides the s
 - Output PLY files contain both vertices and indexed edges.
 
 The included `example_data` directory contains the TLS sample and reference skeletons before and after interwoven optimization.
-
-## Python API
-
-```python
-from wdts import run_pipeline
-
-result = run_pipeline(
-    "example_data/Tree_1.txt",
-    output_dir="results",
-    gamma=0.1,
-)
-
-print(result.optimized_skeleton_path)
-```
-
-Stage-specific functions are also available as `run_skeletonization` and `run_interwoven_optimization`. Advanced parameters can be supplied through `SkeletonizationConfig` and `InterwovenOptimizationConfig`.
-
-## Project layout
-
-```text
-run_wdts.py                     Unified command-line entry point
-wdts.py                         Public Python API
-skeletonization.py              Stage 1 algorithm
-interwoven_optimization.py      Stage 2 algorithm
-pipeline.py                     Two-stage orchestration
-example_data/                   Sample input and reference results
-self_check.py                   Fast API and data-contract checks
-```
-
-## Verification
-
-```bash
-python self_check.py
-```
-
-The refactor preserves the original algorithm order and numerical formulation while clarifying naming, configuration, I/O, and execution. It also removes hard-coded paths and fixes two debug-version failure paths involving global root state and undefined fallback descriptors.
 
 ## Citation
 

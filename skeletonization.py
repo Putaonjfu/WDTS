@@ -19,7 +19,6 @@ import heapq
 from concurrent.futures import ThreadPoolExecutor
 import warnings
 import open3d as o3d
-import itertools
 import matplotlib.pyplot as plt
 import matplotlib.font_manager as fm
 from sklearn.neighbors import KernelDensity
@@ -30,10 +29,6 @@ from typing import Optional, Union
 
 
 PathLike = Union[str, os.PathLike]
-DROPLET_COLUMNS = ("x", "y", "z", "mass", "radius", "ldi", "pdi", "sdi")
-SKELETON_COLUMNS = (
-    "x", "y", "z", "path_length", "location", "branch_id", "ldi", "pdi", "sdi", "mass"
-)
 
 
 class SkeletonizationConfig:
@@ -46,19 +41,16 @@ class SkeletonizationConfig:
     def __init__(self, tree_root=None, base_radius=None, max_radius=None):
         base_radius = 0.0 if base_radius is None else float(base_radius)
         self.gamma = 0.2
-        self.epsilon = base_radius * 0.05
         self.base_radius = base_radius
         self.max_iterations = 5
         self.min_neighbors = 3
         self.density_factor = 2.0
         self.tree_root = tree_root
-        self.debug_ldi_filter = False
         self.tree_growth_start_iteration = 3
         self.max_radius = 0.0 if max_radius is None else float(max_radius)
         self.convergence_tolerance = 0.0001
         self.entropy_linearity_weight = 0.99
         self.entropy_planarity_weight = 0.01
-        self.topology_save_path = None
         self.topology_neighbor_count = 20
         self.topology_alpha = 0.5
         self.topology_beta = 0.5
@@ -73,65 +65,6 @@ class SkeletonizationConfig:
         self.tree_root = np.asarray(tree_root, dtype=float)
         self.base_radius = float(base_radius)
         self.max_radius = float(max_radius)
-        self.epsilon = self.base_radius * 0.05
-
-    # Alternate parameter names accepted by existing configuration files.
-    @property
-    def r_base(self):
-        return self.base_radius
-
-    @r_base.setter
-    def r_base(self, value):
-        self.base_radius = float(value)
-        self.epsilon = self.base_radius * 0.05
-
-    @property
-    def max_iteration(self):
-        return self.max_iterations
-
-    @max_iteration.setter
-    def max_iteration(self, value):
-        self.max_iterations = int(value)
-
-    @property
-    def tree_grow_thresh(self):
-        return self.tree_growth_start_iteration
-
-    @tree_grow_thresh.setter
-    def tree_grow_thresh(self, value):
-        self.tree_growth_start_iteration = int(value)
-
-    @property
-    def delta(self):
-        return self.convergence_tolerance
-
-    @delta.setter
-    def delta(self, value):
-        self.convergence_tolerance = float(value)
-
-    @property
-    def alpha(self):
-        return self.entropy_linearity_weight
-
-    @alpha.setter
-    def alpha(self, value):
-        self.entropy_linearity_weight = float(value)
-
-    @property
-    def beta(self):
-        return self.entropy_planarity_weight
-
-    @beta.setter
-    def beta(self, value):
-        self.entropy_planarity_weight = float(value)
-
-    @property
-    def topology_K(self):
-        return self.topology_neighbor_count
-
-    @topology_K.setter
-    def topology_K(self, value):
-        self.topology_neighbor_count = int(value)
 
 
 @dataclass
@@ -144,22 +77,6 @@ class SkeletonizationResult:
     output_directory: Path
     points_path: Path
     skeleton_path: Path
-
-
-__all__ = [
-    "DROPLET_COLUMNS",
-    "SKELETON_COLUMNS",
-    "SkeletonizationConfig",
-    "SkeletonizationResult",
-    "downsample_if_needed",
-    "estimate_tree_base_geometry",
-    "compute_shape_descriptors",
-    "contract_water_droplets",
-    "reconstruct_skeleton_topology",
-    "load_point_cloud",
-    "save_skeleton",
-    "run_skeletonization",
-]
 
 
 def downsample_if_needed(point_cloud: np.ndarray, base_radius: float, threshold: int = 15000,
@@ -310,7 +227,7 @@ def build_tree_growth_graph(point_cloud, parameters, tree_root, droplet_matrix):
                         heapq.heappush(edge_heap, (total_weight, neighbor, new_node))
         return parent, root_idx
 
-    def compute_sparse_distance_matrix(point_cloud, droplet_matrix, k, r=None):
+    def compute_sparse_distance_matrix(point_cloud, droplet_matrix, k):
         num_points = len(point_cloud)
         kdtree = cKDTree(point_cloud)
         distances, indices = kdtree.query(point_cloud, k=k, workers=-1)
@@ -408,7 +325,7 @@ def build_tree_growth_graph(point_cloud, parameters, tree_root, droplet_matrix):
     return paths, points_with_attributes, root_idx, added_root
 
 
-def select_skeleton_points(points_with_attributes, parameters, paths, _iteration, root_index):
+def select_skeleton_points(points_with_attributes, parameters, paths, root_index):
     """Select ordered skeleton candidates from the root-guided growth paths."""
     neighbor_tree = KDTree(points_with_attributes[:, :3])
     neighbor_indices_by_point = [None] * points_with_attributes.shape[0]
@@ -493,13 +410,6 @@ def select_skeleton_points(points_with_attributes, parameters, paths, _iteration
 
     duplicate_indices = sorted(set(duplicate_indices))
     skeleton_points = np.delete(skeleton_points, duplicate_indices, axis=0)
-    if parameters.debug_ldi_filter:
-        ldi_mask = skeleton_points[:, 6] >= 0.9
-        skeleton_points = skeleton_points[ldi_mask]
-        print(
-            "Points with LDI < 0.9 have been removed. Remaining points:",
-            skeleton_points.shape[0],
-        )
     return skeleton_points
 
 
@@ -784,7 +694,7 @@ def update_droplet_masses(droplet_state, parameters):
         droplet_state[mask_normal, 3] = new_mass
     return droplet_state
 
-def create_contraction_objective(neighbor_points, masses, gamma, delta=1.5):
+def create_contraction_objective(neighbor_points, masses, gamma):
     """Create the mass-weighted robust surface contraction objective."""
     def _huber_loss(error_vectors, delta_val):
         abs_error = np.abs(error_vectors)
@@ -873,8 +783,8 @@ def evaporate_droplets(
     num_skeleton_points = skeleton_points.shape[0]
     num_skeleton_edges = skeleton_edges.shape[0]
     droplet_tree = cKDTree(droplet_state[:, :3])
-    base_radius = getattr(parameters, 'base_radius', 0.1)
-    min_neighbors = getattr(parameters, 'min_neighbors', 5)
+    base_radius = parameters.base_radius
+    min_neighbors = parameters.min_neighbors
     neighbor_counts = np.array([
         len(droplet_tree.query_ball_point(point, base_radius))
         for point in droplet_state[:, :3]
@@ -893,7 +803,7 @@ def evaporate_droplets(
 
     distances = np.full(num_droplets, np.inf)
     nearest_edge_indices = np.full(num_droplets, -1, dtype=int)
-    k_search = getattr(parameters, 'topology_K', 10)
+    k_search = parameters.topology_neighbor_count
     _, nearest_skeleton_point_indices = skeleton_tree.query(
         droplet_state[:, :3], k=min(k_search, num_skeleton_points)
     )
@@ -967,10 +877,10 @@ def evaporate_droplets(
     droplet_pdi_norm = norm(droplet_pdi)
     droplet_sdi_norm = norm(droplet_sdi)
 
-    w_mass = getattr(parameters, 'w_mass', 0.1)
-    w_ldi = getattr(parameters, 'w_ldi', 0.1)
-    w_pdi = getattr(parameters, 'w_pdi', -0.1)
-    w_sdi = getattr(parameters, 'w_sdi', -0.1)
+    w_mass = parameters.w_mass
+    w_ldi = parameters.w_ldi
+    w_pdi = parameters.w_pdi
+    w_sdi = parameters.w_sdi
     factor = 1.0 + w_mass * (mass_norm + droplet_mass_norm) + w_ldi * (ldi_norm + droplet_ldi_norm) + w_pdi * (
                 pdi_norm + droplet_pdi_norm) + w_sdi * (sdi_norm + droplet_sdi_norm)
     base_thresh = edge_radii[nearest_edge_indices] + edge_radii_std[nearest_edge_indices]
@@ -1014,25 +924,8 @@ def compute_shape_descriptors(neighbor_points):
     return ldi, pdi, sdi
 
 
-def reconstruct_skeleton_topology(parameters, skeleton_points, _skeleton_tree=None):
+def reconstruct_skeleton_topology(parameters, skeleton_points):
     """Connect skeleton points with the original root-guided weighted tree."""
-    def __triangulate_and_prune_region(points_subset, original_indices, prune_percentile):
-        if len(points_subset) < 4:
-            return []
-        try:
-            tri = Delaunay(points_subset)
-            edges_local = {tuple(sorted((i, j))) for s in tri.simplices for i, j in itertools.combinations(s, 2)}
-            if not edges_local:
-                return []
-            edges_local_arr = np.array(list(edges_local))
-            edge_lengths = np.linalg.norm(points_subset[edges_local_arr[:, 0]] - points_subset[edges_local_arr[:, 1]],
-                                          axis=1)
-            length_threshold = np.percentile(edge_lengths, prune_percentile)
-            pruned_edges_local = edges_local_arr[edge_lengths < length_threshold]
-            return [(original_indices[u], original_indices[v]) for u, v in pruned_edges_local]
-        except Exception:
-            return []
-
     def _ensure_connectivity(points, adj):
         components = []
         visited = set()
@@ -1112,17 +1005,6 @@ def reconstruct_skeleton_topology(parameters, skeleton_points, _skeleton_tree=No
     adj = _build_graph_knn(points_3d, parameters)
     adj = _ensure_connectivity(points_3d, adj)
     final_edges = _build_weighted_tree(points_3d, adj, parameters)
-    save_path = parameters.topology_save_path
-    if save_path:
-        try:
-            line_set = o3d.geometry.LineSet(points=o3d.utility.Vector3dVector(points_3d),
-                                            lines=o3d.utility.Vector2iVector(final_edges))
-            output_dir = os.path.dirname(save_path)
-            if output_dir:
-                os.makedirs(output_dir, exist_ok=True)
-            o3d.io.write_line_set(save_path, line_set, write_ascii=True)
-        except Exception:
-            pass
     return final_edges
 
 def contract_water_droplets(point_cloud, parameters, savepath, tree_name):
@@ -1216,7 +1098,6 @@ def contract_water_droplets(point_cloud, parameters, savepath, tree_name):
                 points_with_attributes,
                 parameters,
                 paths,
-                iteration_number,
                 root_index,
             )
             skeleton_edges = reconstruct_skeleton_topology(parameters, skeleton_points)
@@ -1370,10 +1251,6 @@ def run_skeletonization(
 
     skeleton_path = output_directory / "initial_skeleton.ply"
     points_path = output_directory / "initial_skeleton_points.txt"
-    # Only the final successful result receives the canonical filename.  This
-    # prevents an interrupted iteration from leaving a partial result that
-    # looks complete.
-    config.topology_save_path = None
     skeleton_points, skeleton_edges = contract_water_droplets(
         point_cloud,
         config,
@@ -1404,55 +1281,3 @@ def run_skeletonization(
         points_path=points_path,
         skeleton_path=skeleton_path,
     )
-
-
-# Alternate names accepted by existing WDTS scripts.
-class Parameters(SkeletonizationConfig):
-    def __init__(self, tree_root, r_base, max_radius):
-        super().__init__(tree_root=tree_root, base_radius=r_base, max_radius=max_radius)
-
-
-get_root_and_radii_lubang = estimate_tree_base_geometry
-conditional_voxel_downsample = downsample_if_needed
-compute_transformed_kde_metric_sklearn_optimized = compute_entropy_metric
-check_convergence = has_converged
-plot_entropy_history = save_entropy_plot
-assign_initial_mass_lubang = initialize_droplets
-create_surface_objective_huber_massweighted = create_contraction_objective
-compute_ldi_pdi = compute_shape_descriptors
-
-
-def fuse_droplets_mass_radius(TLSM, k=0.0001, new_search_radius_method="average", kdt=None):
-    """Compatibility wrapper for the original droplet-merging signature."""
-    return merge_droplets(
-        TLSM,
-        k=k,
-        new_search_radius_method=new_search_radius_method,
-        kdt=kdt,
-    )
-
-
-def update_mass_vectorized(TLSM, parameters):
-    """Compatibility wrapper for the original mass-update signature."""
-    return update_droplet_masses(TLSM, parameters)
-
-
-def restore_skeleton_topology(parameters, skPoints, skTree=None):
-    """Compatibility wrapper for the original topology-restoration signature."""
-    return reconstruct_skeleton_topology(parameters, skPoints, skTree)
-
-
-def global_delaunay_construct_graph(point_cloud, parameters, treeroot, TLSM):
-    return build_tree_growth_graph(point_cloud, parameters, treeroot, TLSM)
-
-
-def tree_grow_optimization(tlsPoints, parameters, paths, T, root_idx):
-    return select_skeleton_points(tlsPoints, parameters, paths, T, root_idx)
-
-
-def water_droplet_evaporate(TLSM, skPoints, skEdges, parameters, savepath, NAME, iter):
-    return evaporate_droplets(TLSM, skPoints, skEdges, parameters, savepath, NAME, iter)
-
-
-def water_droplet_contract(point_cloud, parameters, savepath, name):
-    return contract_water_droplets(point_cloud, parameters, savepath, name)

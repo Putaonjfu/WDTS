@@ -70,7 +70,3 @@ The included `example_data` directory contains the TLS sample and reference skel
   doi={10.1016/j.isprsjprs.2026.04.050}
 }
 ```
-
-## License
-
-See [license](license).

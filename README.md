@@ -47,14 +47,6 @@ python run_wdts.py optimize --tls example_data/Tree_1.txt --skeleton example_dat
 
 Use `python run_wdts.py --help` for all options. Add `--save-intermediate` to retain per-iteration diagnostic files.
 
-## Input and output
-
-- TLS input: `.txt`, `.csv`, `.xyz`, `.ply`, or `.pcd` with XYZ in the first three columns. A single `x y z` header is optional.
-- Skeleton input for Stage 2: `.ply`, `.txt`, or `.csv`. Stage 2 reconstructs topology from the vertices and does not reuse input PLY edges.
-- Input coordinates should use one metric unit and represent one already-segmented tree.
-- Output PLY files contain both vertices and indexed edges.
-
-The included `example_data` directory contains the TLS sample and reference skeletons before and after interwoven optimization.
 
 ## Citation
 

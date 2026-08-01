@@ -1,18 +1,18 @@
-"""Public API for WDTS tree skeletonization."""
+"""Public Python API and module launcher for WDTS."""
 
-__version__ = "1.0.0"
-
-from .interwoven_optimization import (  # noqa: E402
+from interwoven_optimization import (
     InterwovenOptimizationConfig,
     InterwovenOptimizationResult,
     run_interwoven_optimization,
 )
-from .pipeline import PipelineResult, run_pipeline  # noqa: E402
-from .skeletonization import (  # noqa: E402
+from pipeline import PipelineResult, run_pipeline
+from skeletonization import (
     SkeletonizationConfig,
     SkeletonizationResult,
     run_skeletonization,
 )
+
+__version__ = "1.0.0"
 
 __all__ = [
     "__version__",
@@ -25,3 +25,9 @@ __all__ = [
     "run_interwoven_optimization",
     "run_pipeline",
 ]
+
+
+if __name__ == "__main__":
+    from cli import main
+
+    raise SystemExit(main())

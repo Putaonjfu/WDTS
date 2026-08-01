@@ -12,26 +12,26 @@ from unittest.mock import patch
 import numpy as np
 import open3d as o3d
 
-import wdts.skeletonization as skeletonization_module
-from wdts.cli import build_parser
-from wdts.interwoven_optimization import (
+import skeletonization as skeletonization_module
+from cli import build_parser
+from interwoven_optimization import (
     InterwovenOptimizationConfig,
     InterwovenOptimizationResult,
     load_skeleton,
     load_tls_point_cloud,
     run_interwoven_optimization,
 )
-from wdts.pipeline import run_pipeline
-from wdts.skeletonization import (
+from pipeline import run_pipeline
+from skeletonization import (
     SkeletonizationConfig,
     SkeletonizationResult,
     contract_water_droplets,
 )
-from wdts.skeletonization import load_point_cloud as load_stage1_point_cloud
+from skeletonization import load_point_cloud as load_stage1_point_cloud
 
 
-REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
-SAMPLE_DIRECTORY = REPOSITORY_ROOT / "test_data"
+REPOSITORY_ROOT = Path(__file__).resolve().parent
+SAMPLE_DIRECTORY = REPOSITORY_ROOT / "example_data"
 
 
 class SampleDataContractTests(unittest.TestCase):
@@ -211,8 +211,8 @@ class CommandLineContractTests(unittest.TestCase):
             edges=np.array([[0, 1]]),
             output_path=Path("out/oak/optimized_skeleton.ply"),
         )
-        with patch("wdts.pipeline.run_skeletonization", return_value=initial) as stage_one:
-            with patch("wdts.pipeline.run_interwoven_optimization", return_value=optimized) as stage_two:
+        with patch("pipeline.run_skeletonization", return_value=initial) as stage_one:
+            with patch("pipeline.run_interwoven_optimization", return_value=optimized) as stage_two:
                 result = run_pipeline(
                     "input/tree.txt",
                     output_dir="out",

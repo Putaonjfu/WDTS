@@ -17,7 +17,7 @@ Python 3.10 is recommended.
 conda create -n wdts python=3.10 -y
 conda activate wdts
 pip install -r requirements.txt
-python run_wdts.py pipeline test_data/Tree_1.txt --output results
+python run_wdts.py pipeline example_data/Tree_1.txt --output results
 ```
 
 The sample contains 84,556 points and can take tens of minutes on a CPU.
@@ -36,19 +36,19 @@ results/Tree_1/
 Run the complete two-stage pipeline:
 
 ```bash
-python run_wdts.py pipeline test_data/Tree_1.txt --output results
+python run_wdts.py pipeline example_data/Tree_1.txt --output results
 ```
 
 Run skeletonization only:
 
 ```bash
-python run_wdts.py skeletonize test_data/Tree_1.txt --output results --gamma 0.1
+python run_wdts.py skeletonize example_data/Tree_1.txt --output results --gamma 0.1
 ```
 
 Run interwoven optimization only:
 
 ```bash
-python run_wdts.py optimize --tls test_data/Tree_1.txt --skeleton test_data/Tree_1_ske_without_interwoven_op.ply --output results/Tree_1/optimized_skeleton.ply
+python run_wdts.py optimize --tls example_data/Tree_1.txt --skeleton example_data/Tree_1_ske_without_interwoven_op.ply --output results/Tree_1/optimized_skeleton.ply
 ```
 
 Use `python run_wdts.py --help` for all options. `python -m wdts` provides the same interface. Add `--save-intermediate` to retain per-iteration diagnostic files.
@@ -60,7 +60,7 @@ Use `python run_wdts.py --help` for all options. `python -m wdts` provides the s
 - Input coordinates should use one metric unit and represent one already-segmented tree.
 - Output PLY files contain both vertices and indexed edges.
 
-The included `test_data` directory contains the TLS sample and reference skeletons before and after interwoven optimization.
+The included `example_data` directory contains the TLS sample and reference skeletons before and after interwoven optimization.
 
 ## Python API
 
@@ -68,7 +68,7 @@ The included `test_data` directory contains the TLS sample and reference skeleto
 from wdts import run_pipeline
 
 result = run_pipeline(
-    "test_data/Tree_1.txt",
+    "example_data/Tree_1.txt",
     output_dir="results",
     gamma=0.1,
 )
@@ -81,18 +81,19 @@ Stage-specific functions are also available as `run_skeletonization` and `run_in
 ## Project layout
 
 ```text
-run_wdts.py                    Unified command-line entry point
-wdts/skeletonization.py        Stage 1 algorithm
-wdts/interwoven_optimization.py Stage 2 algorithm
-wdts/pipeline.py               Two-stage orchestration
-test_data/                     Sample input and reference results
-tests/                         Fast API and data-contract tests
+run_wdts.py                     Unified command-line entry point
+wdts.py                         Public Python API
+skeletonization.py              Stage 1 algorithm
+interwoven_optimization.py      Stage 2 algorithm
+pipeline.py                     Two-stage orchestration
+example_data/                   Sample input and reference results
+self_check.py                   Fast API and data-contract checks
 ```
 
 ## Verification
 
 ```bash
-python -m unittest discover -s tests -v
+python self_check.py
 ```
 
 The refactor preserves the original algorithm order and numerical formulation while clarifying naming, configuration, I/O, and execution. It also removes hard-coded paths and fixes two debug-version failure paths involving global root state and undefined fallback descriptors.

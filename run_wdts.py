@@ -1,6 +1,6 @@
 """Convenient repository-level launcher for WDTS."""
 
-from wdts.cli import main
+from cli import main
 
 
 if __name__ == "__main__":

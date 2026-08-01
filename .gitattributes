@@ -1,0 +1,2 @@
+# Keep the text point-cloud sample byte-for-byte stable across operating systems.
+example_data/*.txt -text

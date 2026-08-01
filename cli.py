@@ -4,10 +4,12 @@ import argparse
 from pathlib import Path
 from typing import Optional, Sequence
 
-from . import __version__
-from .interwoven_optimization import InterwovenOptimizationConfig, run_interwoven_optimization
-from .pipeline import run_pipeline
-from .skeletonization import SkeletonizationConfig, run_skeletonization
+from interwoven_optimization import InterwovenOptimizationConfig, run_interwoven_optimization
+from pipeline import run_pipeline
+from skeletonization import SkeletonizationConfig, run_skeletonization
+
+
+__version__ = "1.0.0"
 
 
 def _positive_integer(value):

@@ -4,12 +4,12 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
 
-from .interwoven_optimization import (
+from interwoven_optimization import (
     InterwovenOptimizationConfig,
     InterwovenOptimizationResult,
     run_interwoven_optimization,
 )
-from .skeletonization import (
+from skeletonization import (
     PathLike,
     SkeletonizationConfig,
     SkeletonizationResult,
